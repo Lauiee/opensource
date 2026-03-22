@@ -1,0 +1,432 @@
+[
+  {
+    "role": "환자",
+    "index": 0,
+    "content": "3차 시도"
+  },
+  {
+    "role": "원장님",
+    "index": 1,
+    "content": "더좋은 치료를 하도록 하겠습니다"
+  },
+  {
+    "role": "환자",
+    "index": 2,
+    "content": "아 오세요 예뻐요"
+  },
+  {
+    "role": "환자",
+    "index": 3,
+    "content": "그 서류하고 물리치료는 안하는거에요?"
+  },
+  {
+    "role": "원장님",
+    "index": 4,
+    "content": "안돼요 주사만 딱 놔드릴께요"
+  },
+  {
+    "role": "원장님",
+    "index": 5,
+    "content": "아 좋아요"
+  },
+  {
+    "role": "원장님",
+    "index": 6,
+    "content": "네 주사만 딱 놔드릴께요"
+  },
+  {
+    "role": "원장님",
+    "index": 7,
+    "content": "DNA 쓸거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 8,
+    "content": "주사 하나에 98,000원 짜리에요"
+  },
+  {
+    "role": "원장님",
+    "index": 9,
+    "content": "쓸거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 10,
+    "content": "다른 길이 없어요"
+  },
+  {
+    "role": "원장님",
+    "index": 11,
+    "content": "의욕으로 안되는 주사"
+  },
+  {
+    "role": "원장님",
+    "index": 12,
+    "content": "안될겁니다"
+  },
+  {
+    "role": "원장님",
+    "index": 13,
+    "content": "제의가 없구요"
+  },
+  {
+    "role": "원장님",
+    "index": 14,
+    "content": "근데 이제 저 실비는 잘 모르겠어요"
+  },
+  {
+    "role": "원장님",
+    "index": 15,
+    "content": "아 네네"
+  },
+  {
+    "role": "원장님",
+    "index": 16,
+    "content": "그걸 알아서 하세요"
+  },
+  {
+    "role": "환자",
+    "index": 17,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 18,
+    "content": "딱 지난번에 한번 했잖아요 그쵸"
+  },
+  {
+    "role": "원장님",
+    "index": 19,
+    "content": "네"
+  },
+  {
+    "role": "원장님",
+    "index": 20,
+    "content": "지난번거 합쳐서 7번정도 하구요"
+  },
+  {
+    "role": "원장님",
+    "index": 21,
+    "content": "아 6번"
+  },
+  {
+    "role": "원장님",
+    "index": 22,
+    "content": "6번중에서 DNA가 오늘 1번이니까"
+  },
+  {
+    "role": "원장님",
+    "index": 23,
+    "content": "지난번거는 제가 신경치료 해드렸고"
+  },
+  {
+    "role": "원장님",
+    "index": 24,
+    "content": "오늘 DNA랑 같이 쓰고"
+  },
+  {
+    "role": "원장님",
+    "index": 25,
+    "content": "그럼 좋다 7번이 될거 아니에요 그쵸"
+  },
+  {
+    "role": "원장님",
+    "index": 26,
+    "content": "네"
+  },
+  {
+    "role": "원장님",
+    "index": 27,
+    "content": "그 다음에 한달동안 쉴거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 28,
+    "content": "7번 맞고"
+  },
+  {
+    "role": "원장님",
+    "index": 29,
+    "content": "한달 쉴거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 30,
+    "content": "쉬구요"
+  },
+  {
+    "role": "원장님",
+    "index": 31,
+    "content": "4주동안 놔둘거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 32,
+    "content": "네"
+  },
+  {
+    "role": "원장님",
+    "index": 33,
+    "content": "일어나서 좀 다시 볼거에요"
+  },
+  {
+    "role": "원장님",
+    "index": 34,
+    "content": "매주"
+  },
+  {
+    "role": "원장님",
+    "index": 35,
+    "content": "매주인데 매주 못오시면 2주에 한번 오셔도돼요"
+  },
+  {
+    "role": "원장님",
+    "index": 36,
+    "content": "아 알겠습니다"
+  },
+  {
+    "role": "원장님",
+    "index": 37,
+    "content": "되는대로 오세요"
+  },
+  {
+    "role": "원장님",
+    "index": 38,
+    "content": "그러니까 2주를 넘기지만 않으시면 돼요"
+  },
+  {
+    "role": "원장님",
+    "index": 39,
+    "content": "10일만에 와도 좋고 11일만에 와도 좋아요"
+  },
+  {
+    "role": "환자",
+    "index": 40,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 41,
+    "content": "그런데 또 일주일 이전에 오시면 안되요"
+  },
+  {
+    "role": "환자",
+    "index": 42,
+    "content": "알겠습니다"
+  },
+  {
+    "role": "환자",
+    "index": 43,
+    "content": "일주일 아니면 2주"
+  },
+  {
+    "role": "원장님",
+    "index": 44,
+    "content": "그렇죠"
+  },
+  {
+    "role": "원장님",
+    "index": 45,
+    "content": "이제 7에서 14일내로 오시면 돼요 오른손부터"
+  },
+  {
+    "role": "원장님",
+    "index": 46,
+    "content": "네 토요일마다 오겠습니다"
+  },
+  {
+    "role": "원장님",
+    "index": 47,
+    "content": "이렇게 하시는게 제일 좋고"
+  },
+  {
+    "role": "환자",
+    "index": 48,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 49,
+    "content": "이제는 다른 할게 없잖아요"
+  },
+  {
+    "role": "환자",
+    "index": 50,
+    "content": "그쵸요"
+  },
+  {
+    "role": "환자",
+    "index": 51,
+    "content": "설마 큰일났잖아요"
+  },
+  {
+    "role": "환자",
+    "index": 52,
+    "content": "3년 넘도록 떨떡거렸던"
+  },
+  {
+    "role": "환자",
+    "index": 53,
+    "content": "지금 어때요 어제 지난날보다"
+  },
+  {
+    "role": "환자",
+    "index": 54,
+    "content": "주사 맞고 조금 좋아졌는데요"
+  },
+  {
+    "role": "환자",
+    "index": 55,
+    "content": "또 며칠 되니까 조금"
+  },
+  {
+    "role": "환자",
+    "index": 56,
+    "content": "또 살짝 그렇죠"
+  },
+  {
+    "role": "환자",
+    "index": 57,
+    "content": "DLNA에서 아예 재생치료를 해버릴거에요"
+  },
+  {
+    "role": "환자",
+    "index": 58,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 59,
+    "content": "그게 맞을거 같아요 너무 오랫동안"
+  },
+  {
+    "role": "원장님",
+    "index": 60,
+    "content": "맞아요"
+  },
+  {
+    "role": "원장님",
+    "index": 61,
+    "content": "너무 고급스러운 치료만 받으셔서"
+  },
+  {
+    "role": "원장님",
+    "index": 62,
+    "content": "아니 치료는 못받고 그냥 뼈 기품은 자연히 낫는거죠"
+  },
+  {
+    "role": "원장님",
+    "index": 63,
+    "content": "안그래요 사람 모근에"
+  },
+  {
+    "role": "원장님",
+    "index": 64,
+    "content": "아 그러니까요"
+  },
+  {
+    "role": "환자",
+    "index": 65,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 66,
+    "content": "진작에 알았으면"
+  },
+  {
+    "role": "원장님",
+    "index": 67,
+    "content": "신경 막 엄청 써줘야돼요 우리 모근에 이제는요"
+  },
+  {
+    "role": "원장님",
+    "index": 68,
+    "content": "나 욕심먹은거 같네요"
+  },
+  {
+    "role": "원장님",
+    "index": 69,
+    "content": "오늘 해드릴거니까"
+  },
+  {
+    "role": "원장님",
+    "index": 70,
+    "content": "21일날 몇시쯤 괜찮으세요?"
+  },
+  {
+    "role": "원장님",
+    "index": 71,
+    "content": "저 다음주 토요일 아침에 일찍"
+  },
+  {
+    "role": "원장님",
+    "index": 72,
+    "content": "지금 현재 빈시간 9시 50분밖에 없거든요"
+  },
+  {
+    "role": "원장님",
+    "index": 73,
+    "content": "일찍 오세요"
+  },
+  {
+    "role": "원장님",
+    "index": 74,
+    "content": "감사합니다"
+  },
+  {
+    "role": "원장님",
+    "index": 75,
+    "content": "그냥 일찍 오시고"
+  },
+  {
+    "role": "원장님",
+    "index": 76,
+    "content": "기다리겠습니다"
+  },
+  {
+    "role": "원장님",
+    "index": 77,
+    "content": "일찍 해드릴게요"
+  },
+  {
+    "role": "원장님",
+    "index": 78,
+    "content": "바퀴 앉아계세요 준비할게요"
+  },
+  {
+    "role": "환자",
+    "index": 79,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 80,
+    "content": "사고 가시고 되니까 혼내지 마세요"
+  },
+  {
+    "role": "환자",
+    "index": 81,
+    "content": "지금 시간 절약돼요"
+  },
+  {
+    "role": "환자",
+    "index": 82,
+    "content": "감사합니다"
+  },
+  {
+    "role": "환자",
+    "index": 83,
+    "content": "네"
+  },
+  {
+    "role": "환자",
+    "index": 84,
+    "content": "고마워요"
+  },
+  {
+    "role": "환자",
+    "index": 85,
+    "content": "네"
+  }
+]

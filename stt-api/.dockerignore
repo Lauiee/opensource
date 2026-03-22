@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+*.md
+.DS_Store
+*.m4a
+*.mp3
+*.wav
+
+# test stage는 docker_test_main.py만 필요

@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donkey-AI STT Viewer</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg2: #1e293b;
+    --bg3: #334155;
+    --bg4: #1a2332;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --accent-dim: rgba(59,130,246,0.15);
+    --green: #22c55e;
+    --green2: #4ade80;
+    --green-bg: rgba(34,197,94,0.1);
+    --green-bg2: rgba(34,197,94,0.15);
+    --red: #ef4444;
+    --red2: #f87171;
+    --red-bg: rgba(239,68,68,0.1);
+    --red-bg2: rgba(239,68,68,0.15);
+    --orange: #f59e0b;
+    --orange-bg: rgba(245,158,11,0.1);
+    --purple: #a855f7;
+    --purple-bg: rgba(168,85,247,0.1);
+    --cyan: #06b6d4;
+    --cyan-bg: rgba(6,182,212,0.1);
+    --border: #334155;
+    --border2: #475569;
+    --shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 2px 4px -2px rgba(0,0,0,0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.3);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-lg: 14px;
+    --transition: all 0.2s ease;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: linear-gradient(135deg, var(--bg2) 0%, #1a2744 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: relative;
+    z-index: 100;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header h1 .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: white;
+  }
+  .header h1 .brand { color: var(--accent2); }
+  .header h1 .subtitle {
+    font-size: 12px;
+    color: var(--text3);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  /* Header Tabs */
+  .header-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .header-tab {
+    padding: 7px 18px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    transition: var(--transition);
+    white-space: nowrap;
+  }
+  .header-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+  .header-tab.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* ===== LAYOUT ===== */
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: calc(100vh - 56px);
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    transition: var(--transition);
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    pointer-events: none;
+  }
+
+  /* Source Toggle */
+  .sidebar-source-toggle {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 4px;
+  }
+  .source-toggle-btn {
+    flex: 1;
+    padding: 6px 0;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition);
+    text-align: center;
+  }
+  .source-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+  .source-toggle-btn.active-donkey {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-bg);
+  }
+  .source-toggle-btn.active-dalpha {
+    border-color: var(--purple);
+    color: var(--purple);
+    background: var(--purple-bg);
+  }
+
+  .sidebar-header {
+    padding: 10px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-header .count {
+    color: var(--accent2);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .file-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+  }
+
+  /* File Group */
+  .file-group-label {
+    font-size: 11px;
+    color: var(--text3);
+    padding: 8px 8px 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .file-card {
+    background: var(--bg);
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+  }
+  .file-card:hover {
+    border-color: var(--border2);
+    background: var(--bg4);
+  }
+  .file-card.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .file-card .type-label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .file-card .type-num {
+    color: var(--accent2);
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--accent-dim);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .file-card .meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .file-card .tag {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .tag-donkey { color: var(--green); background: var(--green-bg); }
+  .tag-dalpha { color: var(--purple); background: var(--purple-bg); }
+  .tag-wav { color: var(--orange); background: var(--orange-bg); }
+
+  /* Upload area */
+  .upload-area {
+    padding: 8px 12px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .upload-btn {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .upload-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent2);
+    background: var(--accent-dim);
+  }
+  .upload-btn.uploading {
+    border-color: var(--orange);
+    color: var(--orange);
+    background: var(--orange-bg);
+    pointer-events: none;
+  }
+  .upload-btn.uploading .upload-spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--orange);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .upload-progress {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+    display: none;
+  }
+  .upload-progress.active {
+    display: block;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: var(--bg);
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text3);
+    gap: 12px;
+  }
+  .empty-state .empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .empty-state .empty-title { font-size: 16px; color: var(--text2); font-weight: 500; }
+  .empty-state .empty-desc { font-size: 13px; }
+
+  /* ===== STATS BAR ===== */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--bg2);
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    transition: var(--transition);
+  }
+  .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .stat-card .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .stat-card .stat-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+  .stat-value.blue { color: var(--accent2); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.orange { color: var(--orange); }
+  .stat-value.purple { color: var(--purple); }
+  .stat-value.red { color: var(--red2); }
+  .stat-value.cyan { color: var(--cyan); }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+  .filter-chip {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    color: var(--text2);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .filter-chip:hover { border-color: var(--accent); color: var(--text); }
+  .filter-chip.active { border-color: var(--accent); color: var(--accent2); background: var(--accent-dim); }
+  .filter-chip .chip-count {
+    background: var(--bg3);
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* ===== SEGMENT CARDS ===== */
+  .segment {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: var(--transition);
+  }
+  .segment:hover { border-color: var(--border2); }
+  .segment.has-correction { border-left: 3px solid var(--green); }
+  .segment.has-speaker-fix { border-left: 3px solid var(--orange); }
+  .segment.has-both-fix { border-left: 3px solid var(--purple); }
+
+  .segment-header {
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+  .segment-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .segment-header .idx {
+    color: var(--text3);
+    font-weight: 600;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .role-badge {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .role-doctor { background: rgba(59,130,246,0.2); color: var(--accent2); }
+  .role-patient { background: rgba(34,197,94,0.2); color: var(--green2); }
+
+  .speaker-fix-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: var(--orange-bg);
+    color: var(--orange);
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .speaker-original {
+    font-size: 10px;
+    color: var(--red);
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  .segment-body {
+    padding: 12px 14px;
+  }
+  .segment-text {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  /* Inline Diff */
+  .diff-del {
+    background: var(--red-bg2);
+    color: var(--red2);
+    text-decoration: line-through;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  .diff-add {
+    background: var(--green-bg2);
+    color: var(--green2);
+    font-weight: 600;
+    padding: 1px 3px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+
+  /* Correction details */
+  .correction-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(71,85,105,0.3);
+  }
+  .correction-label {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .change-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 4px 0;
+  }
+  .change-original {
+    color: var(--red2);
+    text-decoration: line-through;
+    opacity: 0.8;
+  }
+  .change-arrow { color: var(--text3); font-size: 11px; }
+  .change-corrected { color: var(--green2); font-weight: 600; }
+  .change-tag {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 3px;
+    background: var(--accent-dim);
+    color: var(--accent2);
+    font-weight: 500;
+  }
+  .change-tag.speaker { background: var(--orange-bg); color: var(--orange); }
+
+  /* ===== SOAP VIEW ===== */
+  .soap-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    overflow: hidden;
+    transition: var(--transition);
+  }
+  .soap-section:hover { border-color: var(--border2); }
+  .soap-header {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .soap-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .soap-letter {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+  }
+  .soap-S .soap-letter { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .soap-O .soap-letter { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .soap-A .soap-letter { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .soap-P .soap-letter { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .soap-title { font-weight: 700; font-size: 15px; }
+  .soap-desc {
+    font-size: 12px;
+    color: var(--text3);
+    padding: 0 16px 6px;
+  }
+  .soap-content { padding: 8px 16px 14px; }
+  .soap-content p {
+    font-size: 14px;
+    line-height: 1.75;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(71,85,105,0.2);
+    color: var(--text);
+  }
+  .soap-content p:last-child { border-bottom: none; }
+  .soap-empty { color: var(--text3); font-style: italic; font-size: 13px; }
+  .soap-copy-btn {
+    padding: 4px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 11px;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .soap-copy-btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .soap-copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  /* Transcript in SOAP */
+  .transcript-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 20px;
+  }
+  .transcript-header {
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .transcript-line {
+    display: flex;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(71,85,105,0.2);
+    font-size: 14px;
+    line-height: 1.65;
+    transition: background 0.1s;
+  }
+  .transcript-line:hover { background: rgba(255,255,255,0.02); }
+  .transcript-line:last-child { border-bottom: none; }
+  .transcript-role {
+    flex-shrink: 0;
+    width: 56px;
+    font-weight: 600;
+    font-size: 12px;
+    padding-top: 2px;
+  }
+
+  /* ===== ANALYSIS TAB ===== */
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .analysis-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    transition: var(--transition);
+  }
+  .analysis-card:hover { border-color: var(--border2); }
+  .analysis-card.full-width { grid-column: 1 / -1; }
+  .analysis-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .analysis-card-title .title-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  /* CSS Bar Charts */
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .bar-label {
+    flex-shrink: 0;
+    width: 100px;
+    font-size: 12px;
+    color: var(--text2);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 1;
+    height: 22px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    min-width: 0;
+  }
+  .bar-fill.blue { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .bar-fill.green { background: linear-gradient(90deg, #16a34a, var(--green)); }
+  .bar-fill.orange { background: linear-gradient(90deg, #d97706, var(--orange)); }
+  .bar-fill.red { background: linear-gradient(90deg, #dc2626, var(--red)); }
+  .bar-fill.purple { background: linear-gradient(90deg, #7c3aed, var(--purple)); }
+  .bar-fill.cyan { background: linear-gradient(90deg, #0891b2, var(--cyan)); }
+  .bar-value {
+    flex-shrink: 0;
+    width: 40px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Horizontal bar mini */
+  .mini-bar {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .mini-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  /* Correction list */
+  .correction-list { display: flex; flex-direction: column; gap: 6px; }
+  .correction-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .correction-list-item .cl-original {
+    color: var(--red2);
+    text-decoration: line-through;
+    min-width: 80px;
+  }
+  .correction-list-item .cl-arrow { color: var(--text3); }
+  .correction-list-item .cl-corrected {
+    color: var(--green2);
+    font-weight: 600;
+    min-width: 80px;
+  }
+  .correction-list-item .cl-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--bg2);
+    padding: 1px 8px;
+    border-radius: 10px;
+  }
+
+  /* ===== DASHBOARD TAB ===== */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .dash-stat {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .dash-stat:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .dash-stat .dash-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    margin: 0 auto 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .dash-stat .dash-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .dash-stat .dash-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .dash-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* ===== SETTINGS PANEL ===== */
+  .settings-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s;
+  }
+  .settings-overlay.open { opacity: 1; visibility: visible; }
+  .settings-panel {
+    position: fixed;
+    top: 0;
+    right: -380px;
+    width: 380px;
+    height: 100vh;
+    background: var(--bg2);
+    border-left: 1px solid var(--border);
+    z-index: 201;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-lg);
+  }
+  .settings-panel.open { right: 0; }
+  .settings-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .settings-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px;
+    transition: var(--transition);
+  }
+  .settings-close:hover { color: var(--text); }
+  .settings-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+  .settings-group {
+    margin-bottom: 24px;
+  }
+  .settings-group-title {
+    font-size: 12px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(71,85,105,0.2);
+  }
+  .setting-item:last-child { border-bottom: none; }
+  .setting-info .setting-name { font-size: 14px; font-weight: 500; }
+  .setting-info .setting-desc { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Toggle switch */
+  .toggle-switch {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg3);
+    border-radius: 22px;
+    transition: var(--transition);
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: var(--transition);
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  /* Tier selector */
+  .tier-selector {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .tier-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  .tier-btn:hover { border-color: var(--accent); }
+  .tier-btn.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent2); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-icon {
+    padding: 7px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .btn-icon:hover { background: var(--bg3); color: var(--text); }
+
+  /* ===== LOADING ===== */
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text3);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 10px;
+  }
+
+  /* ===== TOAST ===== */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    animation: toastIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+  /* ===== HIDDEN ===== */
+  .hidden { display: none !important; }
+  .hidden-input { display: none; }
+
+  /* ===== TAB PANES ===== */
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ===== SECTION HEADER ===== */
+  .section-header {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-header .section-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  /* ===== CONFIDENCE DISTRIBUTION ===== */
+  .conf-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .conf-cell {
+    text-align: center;
+    padding: 10px 4px;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+  }
+  .conf-cell .conf-value {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .conf-cell .conf-range {
+    font-size: 10px;
+    color: var(--text3);
+  }
+
+  /* ===== PROBLEMATIC TERMS TABLE ===== */
+  .terms-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .terms-table th {
+    text-align: left;
+    font-size: 11px;
+    color: var(--text3);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .terms-table td {
+    padding: 8px 10px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(71,85,105,0.2);
+  }
+  .terms-table tr:last-child td { border-bottom: none; }
+  .terms-table tr:hover { background: rgba(255,255,255,0.02); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>
+      <span class="logo-icon">D</span>
+      <span class="brand">Donkey-AI</span> STT Viewer
+      <span class="subtitle">Medical Speech-to-Text</span>
+    </h1>
+  </div>
+  <div class="header-tabs" id="headerTabs">
+    <button class="header-tab active" data-tab="compare" onclick="switchMainTab('compare')">결과 비교</button>
+    <button class="header-tab" data-tab="soap" onclick="switchMainTab('soap')">SOAP 노트</button>
+    <button class="header-tab" data-tab="analysis" onclick="switchMainTab('analysis')">교정 분석</button>
+    <button class="header-tab" data-tab="dashboard" onclick="switchMainTab('dashboard')">대시보드</button>
+  </div>
+  <div class="header-actions">
+    <button class="btn" onclick="refreshFiles()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      새로고침
+    </button>
+    <button class="btn" onclick="openSettings()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      설정
+    </button>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-search">
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="파일 검색..." oninput="filterFiles(this.value)">
+      </div>
+    </div>
+    <div class="sidebar-source-toggle">
+      <button class="source-toggle-btn active-donkey" id="srcDonkey" onclick="switchSource('donkey')">Donkey</button>
+      <button class="source-toggle-btn" id="srcDalpha" onclick="switchSource('dalpha')">D-Alpha</button>
+    </div>
+    <div class="sidebar-header">
+      <span>파일 목록</span>
+      <span class="count" id="fileCount">0</span>
+    </div>
+    <div class="file-list" id="fileList">
+      <div class="loading"><div class="spinner"></div><br>파일 로딩 중...</div>
+    </div>
+    <div class="upload-area">
+      <div class="upload-btn" id="uploadBtn" onclick="document.getElementById('fileInput').click()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <span id="uploadBtnText">음성 파일 추가 (자동 STT)</span>
+      </div>
+      <div class="upload-progress" id="uploadProgress"></div>
+      <input type="file" id="fileInput" class="hidden-input" accept=".wav,.mp3,.m4a,.ogg,.flac" onchange="handleUpload(this)">
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main" id="mainContent">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">
+        <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity:0.4">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      </div>
+      <div class="empty-title">왼쪽에서 파일을 선택하세요</div>
+      <div class="empty-desc">STT 전사 결과와 의료용어 교정 내역을 확인할 수 있습니다</div>
+    </div>
+    <div id="contentArea" class="hidden"></div>
+  </div>
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-header">
+    <span>설정</span>
+    <button class="settings-close" onclick="closeSettings()">&times;</button>
+  </div>
+  <div class="settings-body">
+    <div class="settings-group">
+      <div class="settings-group-title">교정 옵션</div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">화자 교정</div>
+          <div class="setting-desc">의사/환자 화자 레이블 자동 교정</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settFixSpeaker" checked onchange="saveSetting('fix_speaker', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">필러 제거</div>
+          <div class="setting-desc">음, 어, 그 등 불필요한 필러 단어 제거</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settRemoveFiller" checked onchange="saveSetting('remove_filler', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">숫자 정규화</div>
+          <div class="setting-desc">구어체 숫자를 표준 형식으로 변환</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settNormNumbers" checked onchange="saveSetting('normalize_numbers', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">환각 제거</div>
+          <div class="setting-desc">반복/무의미한 환각 텍스트 탐지 및 제거</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settRemoveHalluc" onchange="saveSetting('remove_hallucination', this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-title">교정 티어</div>
+      <div class="setting-info">
+        <div class="setting-desc" style="margin-bottom:10px;">적용할 교정 티어를 선택합니다. 높은 티어일수록 정확하지만 느립니다.</div>
+      </div>
+      <div class="tier-selector" id="tierSelector">
+        <button class="tier-btn active" data-tier="1" onclick="selectTier(1)">Tier 1</button>
+        <button class="tier-btn" data-tier="2" onclick="selectTier(2)">Tier 2</button>
+        <button class="tier-btn" data-tier="3" onclick="selectTier(3)">Tier 3</button>
+        <button class="tier-btn" data-tier="all" onclick="selectTier('all')">전체</button>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-title">표시 옵션</div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">교정 항목만 보기</div>
+          <div class="setting-desc">교정이 적용된 세그먼트만 표시</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settOnlyCorrected" onchange="saveSetting('only_corrected', this.checked); showOnlyCorrected = this.checked; loadContent();">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-name">인라인 Diff 표시</div>
+          <div class="setting-desc">원본/교정 텍스트 차이를 인라인으로 표시</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="settInlineDiff" checked onchange="saveSetting('inline_diff', this.checked); showInlineDiff = this.checked; loadContent();">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const API = '';
+let currentType = null;
+let currentSource = 'donkey';
+let currentMainTab = 'compare';
+let showOnlyCorrected = false;
+let showInlineDiff = true;
+let currentTier = 1;
+let filesData = [];
+let currentSTTData = null;
+let currentSOAPData = null;
+
+// ============================================================
+//  SETTINGS (LocalStorage)
+// ============================================================
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('donkey_settings') || '{}');
+    if (s.fix_speaker !== undefined) document.getElementById('settFixSpeaker').checked = s.fix_speaker;
+    if (s.remove_filler !== undefined) document.getElementById('settRemoveFiller').checked = s.remove_filler;
+    if (s.normalize_numbers !== undefined) document.getElementById('settNormNumbers').checked = s.normalize_numbers;
+    if (s.remove_hallucination !== undefined) document.getElementById('settRemoveHalluc').checked = s.remove_hallucination;
+    if (s.only_corrected !== undefined) { document.getElementById('settOnlyCorrected').checked = s.only_corrected; showOnlyCorrected = s.only_corrected; }
+    if (s.inline_diff !== undefined) { document.getElementById('settInlineDiff').checked = s.inline_diff; showInlineDiff = s.inline_diff; }
+    if (s.tier !== undefined) { currentTier = s.tier; selectTier(s.tier, true); }
+    if (s.source !== undefined) { currentSource = s.source; updateSourceToggle(); }
+  } catch(e) { /* ignore */ }
+}
+
+function saveSetting(key, value) {
+  try {
+    const s = JSON.parse(localStorage.getItem('donkey_settings') || '{}');
+    s[key] = value;
+    localStorage.setItem('donkey_settings', JSON.stringify(s));
+  } catch(e) { /* ignore */ }
+}
+
+function getSettings() {
+  try {
+    return JSON.parse(localStorage.getItem('donkey_settings') || '{}');
+  } catch(e) { return {}; }
+}
+
+// ============================================================
+//  SETTINGS PANEL
+// ============================================================
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('open');
+  document.getElementById('settingsPanel').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+  document.getElementById('settingsPanel').classList.remove('open');
+}
+
+function selectTier(tier, skipSave) {
+  currentTier = tier;
+  document.querySelectorAll('#tierSelector .tier-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tier == tier);
+  });
+  if (!skipSave) saveSetting('tier', tier);
+}
+
+// ============================================================
+//  API CALLS
+// ============================================================
+async function fetchFiles() {
+  const res = await fetch(`${API}/api/viewer/files`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchSTT(typeNum, source) {
+  const settings = getSettings();
+  const fixSpeaker = settings.fix_speaker !== false;
+  const res = await fetch(`${API}/api/viewer/stt/${typeNum}/${source}?fix_speaker=${fixSpeaker}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchSOAP(typeNum, source) {
+  const res = await fetch(`${API}/api/viewer/soap/${typeNum}/${source}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ============================================================
+//  TOAST
+// ============================================================
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icon = type === 'success' ? '&#10003;' : '&#10007;';
+  toast.innerHTML = `<span>${icon}</span> ${escapeHtml(message)}`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+// ============================================================
+//  FILE LIST
+// ============================================================
+async function refreshFiles() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = '<div class="loading"><div class="spinner"></div><br>파일 로딩 중...</div>';
+  try {
+    filesData = await fetchFiles();
+    renderFileList(filesData);
+    showToast('파일 목록이 새로고침되었습니다');
+  } catch (e) {
+    list.innerHTML = `<div class="loading" style="color:var(--red)">파일 로드 실패<br><small>${escapeHtml(e.message)}</small></div>`;
+    showToast('파일 로드 실패: ' + e.message, 'error');
+  }
+}
+
+function renderFileList(files, filter) {
+  const list = document.getElementById('fileList');
+  let filtered = files;
+  if (filter) {
+    const q = filter.toLowerCase();
+    filtered = files.filter(f => `type ${f.type_num} ${f.type_name}`.toLowerCase().includes(q));
+  }
+
+  document.getElementById('fileCount').textContent = filtered.length;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="loading" style="padding:20px;">파일이 없습니다</div>';
+    return;
+  }
+
+  // Group by existence of wav/donkey/dalpha
+  const withWav = filtered.filter(f => f.wav_exists);
+  const noWav = filtered.filter(f => !f.wav_exists);
+
+  let html = '';
+
+  if (withWav.length > 0) {
+    html += `<div class="file-group-label">음성 파일 포함 (${withWav.length})</div>`;
+    html += withWav.map(f => renderFileCard(f)).join('');
+  }
+  if (noWav.length > 0) {
+    html += `<div class="file-group-label">텍스트만 (${noWav.length})</div>`;
+    html += noWav.map(f => renderFileCard(f)).join('');
+  }
+
+  list.innerHTML = html;
+}
+
+function renderFileCard(f) {
+  const dur = f.wav_duration ? `${(f.wav_duration / 60).toFixed(1)}분` : '';
+  const active = currentType === f.type_num ? 'active' : '';
+  return `
+    <div class="file-card ${active}" onclick="selectFile(${f.type_num})" data-type="${f.type_num}">
+      <div class="type-label">
+        <span class="type-num">${f.type_num}</span>
+        Type ${f.type_num}
+      </div>
+      <div class="meta">
+        ${f.wav_exists ? `<span class="tag tag-wav">WAV ${dur}</span>` : ''}
+        ${f.donkey_exists ? `<span class="tag tag-donkey">Donkey ${f.donkey_segments}seg</span>` : ''}
+        ${f.dalpha_exists ? `<span class="tag tag-dalpha">D-Alpha ${f.dalpha_segments}seg</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function filterFiles(q) {
+  renderFileList(filesData, q);
+}
+
+// ============================================================
+//  SOURCE TOGGLE
+// ============================================================
+function switchSource(source) {
+  currentSource = source;
+  saveSetting('source', source);
+  updateSourceToggle();
+  if (currentType) loadContent();
+}
+
+function updateSourceToggle() {
+  const dBtn = document.getElementById('srcDonkey');
+  const aBtn = document.getElementById('srcDalpha');
+  dBtn.className = 'source-toggle-btn' + (currentSource === 'donkey' ? ' active-donkey' : '');
+  aBtn.className = 'source-toggle-btn' + (currentSource === 'dalpha' ? ' active-dalpha' : '');
+}
+
+// ============================================================
+//  MAIN TAB SWITCHING
+// ============================================================
+function switchMainTab(tab) {
+  currentMainTab = tab;
+  document.querySelectorAll('#headerTabs .header-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  if (currentType) {
+    loadContent();
+  }
+}
+
+// ============================================================
+//  SELECT FILE
+// ============================================================
+async function selectFile(typeNum) {
+  currentType = typeNum;
+  document.querySelectorAll('.file-card').forEach(c => {
+    c.classList.toggle('active', parseInt(c.dataset.type) === typeNum);
+  });
+  currentSTTData = null;
+  currentSOAPData = null;
+  await loadContent();
+}
+
+// ============================================================
+//  LOAD CONTENT
+// ============================================================
+async function loadContent() {
+  if (!currentType) return;
+  const emptyState = document.getElementById('emptyState');
+  const contentArea = document.getElementById('contentArea');
+  emptyState.classList.add('hidden');
+  contentArea.classList.remove('hidden');
+  contentArea.innerHTML = '<div class="loading"><div class="spinner"></div><br>데이터 로딩 중...</div>';
+
+  try {
+    switch (currentMainTab) {
+      case 'compare': await renderCompareView(); break;
+      case 'soap': await renderSOAPView(); break;
+      case 'analysis': await renderAnalysisView(); break;
+      case 'dashboard': await renderDashboardView(); break;
+    }
+  } catch (e) {
+    contentArea.innerHTML = `<div class="loading" style="color:var(--red)">로드 실패: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ============================================================
+//  COMPARE VIEW (결과 비교)
+// ============================================================
+async function renderCompareView() {
+  if (!currentSTTData || currentSTTData.type_num !== currentType || currentSTTData.source !== currentSource) {
+    currentSTTData = await fetchSTT(currentType, currentSource);
+  }
+  const data = currentSTTData;
+  const contentArea = document.getElementById('contentArea');
+
+  const totalCorr = data.corrected_segments + (data.speaker_corrected || 0);
+  const corrRate = ((totalCorr / Math.max(data.total_segments, 1)) * 100).toFixed(1);
+  const totalChanges = data.segments.reduce((sum, s) => sum + s.changes.length, 0);
+
+  let html = `
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">총 세그먼트</div>
+        <div class="stat-value blue">${data.total_segments}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">용어 교정</div>
+        <div class="stat-value green">${data.corrected_segments}</div>
+        <div class="stat-sub">${totalChanges}건 변경</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">화자 교정</div>
+        <div class="stat-value orange">${data.speaker_corrected || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">교정율</div>
+        <div class="stat-value purple">${corrRate}%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">처리 시간</div>
+        <div class="stat-value cyan">${data.processing_time ? data.processing_time.toFixed(1) + 's' : '-'}</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="filter-chip ${!showOnlyCorrected ? 'active' : ''}" onclick="setFilter('all')">
+          전체 <span class="chip-count">${data.total_segments}</span>
+        </button>
+        <button class="filter-chip ${showOnlyCorrected ? 'active' : ''}" onclick="setFilter('corrected')">
+          교정됨 <span class="chip-count">${totalCorr}</span>
+        </button>
+      </div>
+      <div class="toolbar-right">
+        <span style="font-size:12px; color:var(--text3);">소스:</span>
+        <span style="font-size:12px; font-weight:600; color:${currentSource === 'donkey' ? 'var(--green)' : 'var(--purple)'};">${currentSource === 'donkey' ? 'Donkey' : 'D-Alpha'}</span>
+      </div>
+    </div>
+  `;
+
+  const segments = showOnlyCorrected
+    ? data.segments.filter(s => s.changes.length > 0 || s.speaker_changed)
+    : data.segments;
+
+  if (segments.length === 0) {
+    html += '<div class="loading" style="padding:30px;">표시할 세그먼트가 없습니다</div>';
+  } else {
+    html += segments.map(seg => renderSegmentCard(seg)).join('');
+  }
+
+  contentArea.innerHTML = html;
+}
+
+function renderSegmentCard(seg) {
+  const hasCorr = seg.changes.length > 0;
+  const hasSpeakerFix = seg.speaker_changed || false;
+  const isDoctor = seg.role.includes('원장') || seg.role.includes('의사');
+  const roleClass = isDoctor ? 'role-doctor' : 'role-patient';
+  const roleLabel = isDoctor ? 'Doctor' : 'Patient';
+
+  let segClass = '';
+  if (hasCorr && hasSpeakerFix) segClass = 'has-both-fix';
+  else if (hasSpeakerFix) segClass = 'has-speaker-fix';
+  else if (hasCorr) segClass = 'has-correction';
+
+  // Build body
+  let body = '';
+
+  // Main text with inline diff
+  if (hasCorr && showInlineDiff) {
+    body += `<div class="segment-text">${buildInlineDiff(seg.original, seg.corrected, seg.changes)}</div>`;
+  } else {
+    body += `<div class="segment-text">${escapeHtml(seg.corrected)}</div>`;
+  }
+
+  // Speaker correction details
+  if (hasSpeakerFix) {
+    body += `
+      <div class="correction-section">
+        <div class="correction-label" style="color:var(--orange);">화자 교정</div>
+        <div class="change-item">
+          <span class="change-original">${escapeHtml(seg.original_role)}</span>
+          <span class="change-arrow">&rarr;</span>
+          <span class="change-corrected">${escapeHtml(seg.role)}</span>
+          <span class="change-tag speaker">${seg.speaker_strategy || 'AB+GPT'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Medical term correction details
+  if (hasCorr) {
+    body += `
+      <div class="correction-section">
+        <div class="correction-label">의료용어 교정 (${seg.changes.length}건)</div>
+        ${seg.changes.map(c => `
+          <div class="change-item">
+            <span class="change-original">${escapeHtml(c.original)}</span>
+            <span class="change-arrow">&rarr;</span>
+            <span class="change-corrected">${escapeHtml(c.corrected)}</span>
+            <span class="change-tag">${escapeHtml(c.strategy)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Speaker fix badge in header
+  let headerRight = '';
+  if (hasSpeakerFix) {
+    headerRight = `
+      <span class="speaker-fix-badge">
+        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+        화자교정
+      </span>
+      <span class="speaker-original">${escapeHtml(seg.original_role)}</span>
+    `;
+  }
+
+  return `
+    <div class="segment ${segClass}">
+      <div class="segment-header">
+        <div class="segment-header-left">
+          <span class="idx">#${seg.index}</span>
+          <span class="role-badge ${roleClass}">${escapeHtml(seg.role)} (${roleLabel})</span>
+          ${headerRight}
+        </div>
+        ${hasCorr ? `<span style="font-size:11px; color:var(--green); font-weight:600;">${seg.changes.length}건 교정</span>` : ''}
+      </div>
+      <div class="segment-body">${body}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+//  INLINE DIFF
+// ============================================================
+function buildInlineDiff(original, corrected, changes) {
+  if (!changes || changes.length === 0) return escapeHtml(corrected);
+
+  let result = original;
+  // Sort changes by position (reverse so indices remain valid)
+  const sortedChanges = [...changes].sort((a, b) => {
+    const posA = result.indexOf(a.original);
+    const posB = result.indexOf(b.original);
+    return posB - posA;
+  });
+
+  // Build a map of replacements
+  let diffHtml = escapeHtml(corrected);
+
+  // For each change, highlight the corrected text in the result
+  for (const c of changes) {
+    const escapedCorrected = escapeHtml(c.corrected);
+    const escapedOriginal = escapeHtml(c.original);
+
+    // Replace the corrected text with a diff span showing both
+    if (diffHtml.includes(escapedCorrected)) {
+      const replacement = `<span class="diff-del">${escapedOriginal}</span> <span class="diff-add">${escapedCorrected}</span>`;
+      // Only replace first occurrence
+      diffHtml = diffHtml.replace(escapedCorrected, replacement);
+    }
+  }
+
+  return diffHtml;
+}
+
+// ============================================================
+//  SOAP VIEW
+// ============================================================
+async function renderSOAPView() {
+  if (!currentSOAPData || currentSOAPData.type_num !== currentType || currentSOAPData.source !== currentSource) {
+    currentSOAPData = await fetchSOAP(currentType, currentSource);
+  }
+  const data = currentSOAPData;
+  const soap = data.soap;
+  const contentArea = document.getElementById('contentArea');
+
+  const soapSections = [
+    { key: 'S', cls: 'soap-S', color: '#3b82f6' },
+    { key: 'O', cls: 'soap-O', color: '#22c55e' },
+    { key: 'A', cls: 'soap-A', color: '#f59e0b' },
+    { key: 'P', cls: 'soap-P', color: '#ef4444' },
+  ];
+
+  let html = `<div class="section-header">
+    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    SOAP 노트
+    <span class="section-badge" style="background:var(--accent-dim); color:var(--accent2);">Type ${data.type_num}</span>
+    <span class="section-badge" style="background:${currentSource === 'donkey' ? 'var(--green-bg)' : 'var(--purple-bg)'}; color:${currentSource === 'donkey' ? 'var(--green)' : 'var(--purple)'};">${currentSource === 'donkey' ? 'Donkey' : 'D-Alpha'}</span>
+  </div>`;
+
+  for (const { key, cls } of soapSections) {
+    const section = soap[key];
+    const lines = section.content || [];
+    const copyId = `soap-copy-${key}`;
+    html += `
+      <div class="soap-section ${cls}">
+        <div class="soap-header">
+          <div class="soap-header-left">
+            <div class="soap-letter">${key}</div>
+            <span class="soap-title">${escapeHtml(section.title)}</span>
+          </div>
+          <button class="soap-copy-btn" id="${copyId}" onclick="copySoapSection('${key}', '${copyId}')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            복사
+          </button>
+        </div>
+        <div class="soap-desc">${escapeHtml(section.description)}</div>
+        <div class="soap-content">
+          ${lines.length > 0
+            ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
+            : '<p class="soap-empty">해당 내용이 없습니다</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  // Full transcript
+  const transcript = soap.full_transcript;
+  html += `
+    <div class="transcript-section">
+      <div class="transcript-header">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+        </svg>
+        ${escapeHtml(transcript.title)}
+        <span style="font-size:12px; color:var(--text3); font-weight:400; margin-left:auto;">${transcript.content.length}개 발화</span>
+      </div>
+      ${transcript.content.map(item => {
+        const isDoc = item.role.includes('원장') || item.role.includes('의사');
+        const rc = isDoc ? 'role-doctor' : 'role-patient';
+        return `
+          <div class="transcript-line">
+            <span class="transcript-role ${rc}">${escapeHtml(item.role)}</span>
+            <span>${escapeHtml(item.text)}</span>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  contentArea.innerHTML = html;
+}
+
+function copySoapSection(key, btnId) {
+  if (!currentSOAPData) return;
+  const section = currentSOAPData.soap[key];
+  const lines = section.content || [];
+  const text = `[${key}] ${section.title}\n${lines.join('\n')}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById(btnId);
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 복사됨`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg> 복사`;
+    }, 2000);
+  });
+}
+
+// ============================================================
+//  ANALYSIS VIEW (교정 분석)
+// ============================================================
+async function renderAnalysisView() {
+  if (!currentSTTData || currentSTTData.type_num !== currentType || currentSTTData.source !== currentSource) {
+    currentSTTData = await fetchSTT(currentType, currentSource);
+  }
+  const data = currentSTTData;
+  const contentArea = document.getElementById('contentArea');
+
+  // Compute analysis data
+  const allChanges = [];
+  const strategyCount = {};
+  const correctionMap = {};
+  let speakerFixCount = 0;
+  let termFixCount = 0;
+  let bothFixCount = 0;
+
+  data.segments.forEach(seg => {
+    const hasCorr = seg.changes.length > 0;
+    const hasSpeaker = seg.speaker_changed;
+    if (hasCorr && hasSpeaker) bothFixCount++;
+    else if (hasSpeaker) speakerFixCount++;
+    else if (hasCorr) termFixCount++;
+
+    seg.changes.forEach(c => {
+      allChanges.push(c);
+      strategyCount[c.strategy] = (strategyCount[c.strategy] || 0) + 1;
+      const key = `${c.original}|||${c.corrected}`;
+      correctionMap[key] = (correctionMap[key] || 0) + 1;
+    });
+  });
+
+  const totalChanges = allChanges.length;
+  const noFixCount = data.total_segments - termFixCount - speakerFixCount - bothFixCount;
+
+  // Strategy breakdown
+  const strategies = Object.entries(strategyCount).sort((a, b) => b[1] - a[1]);
+  const maxStrategyCount = strategies.length > 0 ? strategies[0][1] : 1;
+
+  // Most common corrections
+  const commonCorrections = Object.entries(correctionMap)
+    .map(([key, count]) => {
+      const [original, corrected] = key.split('|||');
+      return { original, corrected, count };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  // Confidence distribution (simulated based on strategy)
+  const confBuckets = [0, 0, 0, 0, 0]; // 0-20, 20-40, 40-60, 60-80, 80-100
+  allChanges.forEach(c => {
+    const strategy = c.strategy.toLowerCase();
+    if (strategy.includes('exact') || strategy.includes('dict')) confBuckets[4]++;
+    else if (strategy.includes('phonetic') || strategy.includes('음성')) confBuckets[3]++;
+    else if (strategy.includes('context') || strategy.includes('문맥')) confBuckets[2]++;
+    else if (strategy.includes('gpt') || strategy.includes('llm')) confBuckets[1]++;
+    else confBuckets[4]++;
+  });
+
+  let html = `
+    <div class="section-header">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      교정 분석
+      <span class="section-badge" style="background:var(--accent-dim); color:var(--accent2);">Type ${data.type_num}</span>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">총 교정 건수</div>
+        <div class="stat-value green">${totalChanges}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">교정 전략 수</div>
+        <div class="stat-value blue">${strategies.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">고유 교정 패턴</div>
+        <div class="stat-value purple">${Object.keys(correctionMap).length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">교정율</div>
+        <div class="stat-value orange">${((data.corrected_segments / Math.max(data.total_segments, 1)) * 100).toFixed(1)}%</div>
+      </div>
+    </div>
+
+    <div class="analysis-grid">
+      <!-- Correction Breakdown -->
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--accent-dim); color:var(--accent2);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>
+          </span>
+          세그먼트 교정 분포
+        </div>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <div class="bar-label">용어 교정</div>
+            <div class="bar-track"><div class="bar-fill green" style="width:${(termFixCount / Math.max(data.total_segments, 1) * 100)}%">${termFixCount}</div></div>
+            <div class="bar-value">${termFixCount}</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">화자 교정</div>
+            <div class="bar-track"><div class="bar-fill orange" style="width:${(speakerFixCount / Math.max(data.total_segments, 1) * 100)}%">${speakerFixCount}</div></div>
+            <div class="bar-value">${speakerFixCount}</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">복합 교정</div>
+            <div class="bar-track"><div class="bar-fill purple" style="width:${(bothFixCount / Math.max(data.total_segments, 1) * 100)}%">${bothFixCount}</div></div>
+            <div class="bar-value">${bothFixCount}</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">교정 없음</div>
+            <div class="bar-track"><div class="bar-fill blue" style="width:${(noFixCount / Math.max(data.total_segments, 1) * 100)}%">${noFixCount}</div></div>
+            <div class="bar-value">${noFixCount}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Strategy Breakdown -->
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--green-bg); color:var(--green);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          </span>
+          교정 전략별 통계
+        </div>
+        <div class="bar-chart">
+          ${strategies.map(([strategy, count], i) => {
+            const colors = ['green', 'blue', 'orange', 'purple', 'cyan', 'red'];
+            const color = colors[i % colors.length];
+            return `
+              <div class="bar-row">
+                <div class="bar-label" title="${escapeHtml(strategy)}">${escapeHtml(strategy)}</div>
+                <div class="bar-track"><div class="bar-fill ${color}" style="width:${(count / maxStrategyCount * 100)}%">${count}</div></div>
+                <div class="bar-value">${count}</div>
+              </div>
+            `;
+          }).join('')}
+          ${strategies.length === 0 ? '<div style="color:var(--text3); font-size:13px; padding:8px;">교정 데이터가 없습니다</div>' : ''}
+        </div>
+      </div>
+
+      <!-- Common Corrections -->
+      <div class="analysis-card full-width">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--orange-bg); color:var(--orange);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          </span>
+          자주 발생하는 교정 (상위 10개)
+        </div>
+        <div class="correction-list">
+          ${commonCorrections.map(c => `
+            <div class="correction-list-item">
+              <span class="cl-original">${escapeHtml(c.original)}</span>
+              <span class="cl-arrow">&rarr;</span>
+              <span class="cl-corrected">${escapeHtml(c.corrected)}</span>
+              <span class="cl-count">${c.count}회</span>
+            </div>
+          `).join('')}
+          ${commonCorrections.length === 0 ? '<div style="color:var(--text3); font-size:13px; padding:8px;">교정 데이터가 없습니다</div>' : ''}
+        </div>
+      </div>
+
+      <!-- Confidence Distribution -->
+      <div class="analysis-card full-width">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--purple-bg); color:var(--purple);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </span>
+          교정 신뢰도 분포 (전략 기반 추정)
+        </div>
+        <div class="conf-grid">
+          <div class="conf-cell">
+            <div class="conf-value" style="color:var(--red)">${confBuckets[0]}</div>
+            <div class="conf-range">0-20%</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:${confBuckets[0] / Math.max(totalChanges, 1) * 100}%; background:var(--red);"></div></div>
+          </div>
+          <div class="conf-cell">
+            <div class="conf-value" style="color:var(--orange)">${confBuckets[1]}</div>
+            <div class="conf-range">20-40%</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:${confBuckets[1] / Math.max(totalChanges, 1) * 100}%; background:var(--orange);"></div></div>
+          </div>
+          <div class="conf-cell">
+            <div class="conf-value" style="color:var(--accent2)">${confBuckets[2]}</div>
+            <div class="conf-range">40-60%</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:${confBuckets[2] / Math.max(totalChanges, 1) * 100}%; background:var(--accent2);"></div></div>
+          </div>
+          <div class="conf-cell">
+            <div class="conf-value" style="color:var(--cyan)">${confBuckets[3]}</div>
+            <div class="conf-range">60-80%</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:${confBuckets[3] / Math.max(totalChanges, 1) * 100}%; background:var(--cyan);"></div></div>
+          </div>
+          <div class="conf-cell">
+            <div class="conf-value" style="color:var(--green)">${confBuckets[4]}</div>
+            <div class="conf-range">80-100%</div>
+            <div class="mini-bar"><div class="mini-bar-fill" style="width:${confBuckets[4] / Math.max(totalChanges, 1) * 100}%; background:var(--green);"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  contentArea.innerHTML = html;
+}
+
+// ============================================================
+//  DASHBOARD VIEW (대시보드)
+// ============================================================
+async function renderDashboardView() {
+  const contentArea = document.getElementById('contentArea');
+
+  // Fetch all files' STT data for aggregate stats
+  contentArea.innerHTML = '<div class="loading"><div class="spinner"></div><br>대시보드 데이터 집계 중...</div>';
+
+  const allData = [];
+  const settings = getSettings();
+  const fixSpeaker = settings.fix_speaker !== false;
+
+  for (const f of filesData) {
+    const source = currentSource;
+    const hasSource = source === 'donkey' ? f.donkey_exists : f.dalpha_exists;
+    if (!hasSource) continue;
+    try {
+      const res = await fetch(`${API}/api/viewer/stt/${f.type_num}/${source}?fix_speaker=${fixSpeaker}`);
+      if (res.ok) {
+        const d = await res.json();
+        allData.push(d);
+      }
+    } catch(e) { /* skip */ }
+  }
+
+  if (allData.length === 0) {
+    contentArea.innerHTML = '<div class="loading" style="padding:40px;">대시보드에 표시할 데이터가 없습니다.<br>파일을 업로드하거나 소스를 전환해 보세요.</div>';
+    return;
+  }
+
+  // Aggregate stats
+  let totalSegs = 0, totalTermCorr = 0, totalSpeakerCorr = 0, totalChanges = 0;
+  const globalStrategyCount = {};
+  const globalCorrectionMap = {};
+  const perFileStats = [];
+
+  allData.forEach(d => {
+    totalSegs += d.total_segments;
+    totalTermCorr += d.corrected_segments;
+    totalSpeakerCorr += (d.speaker_corrected || 0);
+
+    let fileChanges = 0;
+    d.segments.forEach(seg => {
+      fileChanges += seg.changes.length;
+      seg.changes.forEach(c => {
+        totalChanges++;
+        globalStrategyCount[c.strategy] = (globalStrategyCount[c.strategy] || 0) + 1;
+        const key = `${c.original}|||${c.corrected}`;
+        globalCorrectionMap[key] = (globalCorrectionMap[key] || 0) + 1;
+      });
+    });
+
+    perFileStats.push({
+      typeNum: d.type_num,
+      total: d.total_segments,
+      corrected: d.corrected_segments,
+      speakerCorr: d.speaker_corrected || 0,
+      changes: fileChanges,
+      rate: ((d.corrected_segments / Math.max(d.total_segments, 1)) * 100).toFixed(1),
+    });
+  });
+
+  const overallRate = ((totalTermCorr / Math.max(totalSegs, 1)) * 100).toFixed(1);
+  const avgChangesPerSeg = (totalChanges / Math.max(totalTermCorr, 1)).toFixed(1);
+
+  // Top strategies
+  const topStrategies = Object.entries(globalStrategyCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const maxStrat = topStrategies.length > 0 ? topStrategies[0][1] : 1;
+
+  // Most problematic terms
+  const problematicTerms = Object.entries(globalCorrectionMap)
+    .map(([key, count]) => { const [o, c] = key.split('|||'); return { original: o, corrected: c, count }; })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  // Per-file correction rate chart
+  const maxFileRate = Math.max(...perFileStats.map(f => parseFloat(f.rate)), 1);
+
+  let html = `
+    <div class="section-header">
+      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+      대시보드
+      <span class="section-badge" style="background:${currentSource === 'donkey' ? 'var(--green-bg)' : 'var(--purple-bg)'}; color:${currentSource === 'donkey' ? 'var(--green)' : 'var(--purple)'};">${currentSource === 'donkey' ? 'Donkey' : 'D-Alpha'}</span>
+      <span class="section-badge" style="background:var(--accent-dim); color:var(--accent2);">${allData.length}개 파일</span>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dash-stat">
+        <div class="dash-icon" style="background:var(--accent-dim); color:var(--accent2);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        </div>
+        <div class="dash-value blue">${totalSegs}</div>
+        <div class="dash-label">총 세그먼트</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-icon" style="background:var(--green-bg); color:var(--green);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="dash-value green">${totalChanges}</div>
+        <div class="dash-label">총 교정 건수</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-icon" style="background:var(--orange-bg); color:var(--orange);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        </div>
+        <div class="dash-value orange">${overallRate}%</div>
+        <div class="dash-label">평균 교정율</div>
+      </div>
+      <div class="dash-stat">
+        <div class="dash-icon" style="background:var(--purple-bg); color:var(--purple);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+        </div>
+        <div class="dash-value purple">${totalSpeakerCorr}</div>
+        <div class="dash-label">화자 교정</div>
+      </div>
+    </div>
+
+    <div class="dash-charts">
+      <!-- Correction Rate by File -->
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--accent-dim); color:var(--accent2);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </span>
+          파일별 교정율
+        </div>
+        <div class="bar-chart">
+          ${perFileStats.map(f => `
+            <div class="bar-row">
+              <div class="bar-label">Type ${f.typeNum}</div>
+              <div class="bar-track"><div class="bar-fill blue" style="width:${(parseFloat(f.rate) / Math.max(maxFileRate, 1) * 100)}%">${f.rate}%</div></div>
+              <div class="bar-value">${f.changes}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Strategy Distribution -->
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--green-bg); color:var(--green);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>
+          </span>
+          전략별 교정 분포
+        </div>
+        <div class="bar-chart">
+          ${topStrategies.map(([strategy, count], i) => {
+            const colors = ['green', 'blue', 'orange', 'purple', 'cyan', 'red'];
+            const color = colors[i % colors.length];
+            return `
+              <div class="bar-row">
+                <div class="bar-label" title="${escapeHtml(strategy)}">${escapeHtml(strategy)}</div>
+                <div class="bar-track"><div class="bar-fill ${color}" style="width:${(count / maxStrat * 100)}%">${count}</div></div>
+                <div class="bar-value">${count}</div>
+              </div>
+            `;
+          }).join('')}
+          ${topStrategies.length === 0 ? '<div style="color:var(--text3); font-size:13px; padding:8px;">데이터 없음</div>' : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Most Problematic Terms -->
+    <div class="analysis-card" style="margin-bottom:20px;">
+      <div class="analysis-card-title">
+        <span class="title-icon" style="background:var(--red-bg); color:var(--red);">
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+          </span>
+        빈출 오인식 용어
+      </div>
+      <table class="terms-table">
+        <thead>
+          <tr>
+            <th>순위</th>
+            <th>원본 (오인식)</th>
+            <th>교정</th>
+            <th>발생 횟수</th>
+            <th>비율</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${problematicTerms.map((t, i) => `
+            <tr>
+              <td style="color:var(--text3); font-weight:600;">${i + 1}</td>
+              <td><span style="color:var(--red2); text-decoration:line-through;">${escapeHtml(t.original)}</span></td>
+              <td><span style="color:var(--green2); font-weight:600;">${escapeHtml(t.corrected)}</span></td>
+              <td style="font-weight:600;">${t.count}회</td>
+              <td style="color:var(--text3);">${((t.count / Math.max(totalChanges, 1)) * 100).toFixed(1)}%</td>
+            </tr>
+          `).join('')}
+          ${problematicTerms.length === 0 ? '<tr><td colspan="5" style="color:var(--text3); text-align:center; padding:16px;">데이터 없음</td></tr>' : ''}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="analysis-grid">
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--cyan-bg); color:var(--cyan);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+          요약 정보
+        </div>
+        <div style="font-size:13px; color:var(--text2); line-height:2;">
+          <div style="display:flex; justify-content:space-between;"><span>분석 파일 수</span><span style="font-weight:600; color:var(--text);">${allData.length}개</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>총 세그먼트</span><span style="font-weight:600; color:var(--text);">${totalSegs}개</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>용어 교정 세그먼트</span><span style="font-weight:600; color:var(--green);">${totalTermCorr}개</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>화자 교정 세그먼트</span><span style="font-weight:600; color:var(--orange);">${totalSpeakerCorr}개</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>총 교정 건수</span><span style="font-weight:600; color:var(--text);">${totalChanges}건</span></div>
+          <div style="display:flex; justify-content:space-between;"><span>교정 세그먼트당 평균 변경</span><span style="font-weight:600; color:var(--text);">${avgChangesPerSeg}건</span></div>
+        </div>
+      </div>
+      <div class="analysis-card">
+        <div class="analysis-card-title">
+          <span class="title-icon" style="background:var(--orange-bg); color:var(--orange);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+          파일별 세부 현황
+        </div>
+        <div style="font-size:13px; color:var(--text2); line-height:2;">
+          ${perFileStats.map(f => `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span>Type ${f.typeNum}</span>
+              <span>
+                <span style="color:var(--text);">${f.total}seg</span>
+                <span style="margin:0 4px; color:var(--text3);">/</span>
+                <span style="color:var(--green);">${f.changes}교정</span>
+                <span style="margin:0 4px; color:var(--text3);">/</span>
+                <span style="color:var(--accent2);">${f.rate}%</span>
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  contentArea.innerHTML = html;
+}
+
+// ============================================================
+//  FILTER
+// ============================================================
+function setFilter(type) {
+  showOnlyCorrected = type === 'corrected';
+  document.getElementById('settOnlyCorrected').checked = showOnlyCorrected;
+  saveSetting('only_corrected', showOnlyCorrected);
+  loadContent();
+}
+
+// ============================================================
+//  UPLOAD — 음성 파일 → 자동 STT 전사
+// ============================================================
+async function handleUpload(input) {
+  const files = input.files;
+  if (!files.length) return;
+
+  const btn = document.getElementById('uploadBtn');
+  const btnText = document.getElementById('uploadBtnText');
+  const progress = document.getElementById('uploadProgress');
+
+  for (const file of files) {
+    const fileName = file.name;
+    const isAudio = /\.(wav|mp3|m4a|ogg|flac)$/i.test(fileName);
+
+    if (!isAudio) {
+      showToast(`지원하지 않는 형식입니다: ${fileName}`, 'error');
+      continue;
+    }
+
+    // UI: 처리 중 표시
+    btn.classList.add('uploading');
+    btnText.innerHTML = '<span class="upload-spinner"></span> STT 처리 중...';
+    progress.classList.add('active');
+    progress.textContent = `"${fileName}" 전사 중... (1~3분 소요)`;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('source_label', 'donkey');
+
+    try {
+      const res = await fetch(`${API}/api/viewer/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+
+      if (result.ok) {
+        showToast(`Type ${result.type_num} 전사 완료! (${result.segments}세그먼트, ${result.corrections}교정)`, 'success');
+        progress.textContent = `완료: Type ${result.type_num} (${result.segments}세그먼트)`;
+      } else {
+        const errMsg = result.detail || JSON.stringify(result);
+        showToast(`STT 실패: ${errMsg}`, 'error');
+        progress.textContent = `실패: ${errMsg}`;
+      }
+    } catch (e) {
+      showToast(`STT 오류: ${e.message}`, 'error');
+      progress.textContent = `오류: ${e.message}`;
+    }
+  }
+
+  // UI 복원
+  btn.classList.remove('uploading');
+  btnText.textContent = '음성 파일 추가 (자동 STT)';
+  setTimeout(() => { progress.classList.remove('active'); }, 5000);
+
+  input.value = '';
+  await refreshFiles();
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
+// ============================================================
+//  KEYBOARD SHORTCUTS
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  // Escape to close settings
+  if (e.key === 'Escape') {
+    closeSettings();
+  }
+  // Ctrl+K to focus search
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// ============================================================
+//  INIT
+// ============================================================
+loadSettings();
+refreshFiles();
+</script>
+</body>
+</html>
