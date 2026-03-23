@@ -140,11 +140,11 @@ def transcribe_with_segments(
         str(wav_path),
         language=lang,
         beam_size=beam_size,
-        vad_filter=True,
+        vad_filter=False,  # True 시 의료 상담 오디오에서 음성 과도 제거 → 전사 0개. 필요시 True + threshold 0.25로 재시도
         vad_parameters={
             "min_silence_duration_ms": 500,
-            "speech_pad_ms": 400,
-            "threshold": 0.5,
+            "speech_pad_ms": 500,
+            "threshold": 0.25,
         },
         initial_prompt=initial_prompt,
         condition_on_previous_text=True,
