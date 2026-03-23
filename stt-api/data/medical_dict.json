@@ -80,6 +80,71 @@
   ],
   "entries": [
     {
+      "id": "fix_next1",
+      "wrong": "다번",
+      "correct": "다음번",
+      "category": "일반",
+      "strategy": "exact",
+      "pattern": null,
+      "context_hint": [],
+      "priority": 60,
+      "confidence": 1.0,
+      "enabled": true,
+      "notes": "STT '음' 누락 (다음번)"
+    },
+    {
+      "id": "fix_sa4_1",
+      "wrong": "소변검4",
+      "correct": "소변검사",
+      "category": "일반",
+      "strategy": "exact",
+      "pattern": null,
+      "context_hint": [],
+      "priority": 60,
+      "confidence": 1.0,
+      "enabled": true,
+      "notes": "STT '사'→'4' 오인식"
+    },
+    {
+      "id": "fix_ju4",
+      "wrong": "주4",
+      "correct": "주사",
+      "category": "일반",
+      "strategy": "exact",
+      "pattern": null,
+      "context_hint": [],
+      "priority": 65,
+      "confidence": 1.0,
+      "enabled": true,
+      "notes": "STT '사'→'4' 오인식 (주사)"
+    },
+    {
+      "id": "fix_sa4_2",
+      "wrong": "검4",
+      "correct": "검사",
+      "category": "일반",
+      "strategy": "exact",
+      "pattern": null,
+      "context_hint": [],
+      "priority": 55,
+      "confidence": 1.0,
+      "enabled": true,
+      "notes": "STT '사'→'4' 오인식 (혈액검4, 정밀검4 등)"
+    },
+    {
+      "id": "fix_next2",
+      "wrong": "다에",
+      "correct": "다음에",
+      "category": "일반",
+      "strategy": "exact",
+      "pattern": null,
+      "context_hint": [],
+      "priority": 60,
+      "confidence": 1.0,
+      "enabled": true,
+      "notes": "STT '음' 누락 (다음에)"
+    },
+    {
       "id": "c991cc69c93d",
       "wrong": "전체 환수로",
       "correct": "전치환술 후",
@@ -528,12 +593,7 @@
       "category": "안과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "눈",
-        "시력",
-        "안약",
-        "안과"
-      ],
+      "context_hint": ["눈", "시력", "안약", "안과"],
       "priority": 53,
       "confidence": 1.0,
       "enabled": true,
@@ -546,12 +606,7 @@
       "category": "안과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "눈",
-        "시력",
-        "안약",
-        "안과"
-      ],
+      "context_hint": ["눈", "시력", "안약", "안과"],
       "priority": 63,
       "confidence": 1.0,
       "enabled": true,
@@ -564,12 +619,7 @@
       "category": "안과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "눈",
-        "시력",
-        "안약",
-        "안과"
-      ],
+      "context_hint": ["눈", "시력", "안약", "안과"],
       "priority": 53,
       "confidence": 1.0,
       "enabled": true,
@@ -582,12 +632,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 52,
       "confidence": 1.0,
       "enabled": true,
@@ -600,12 +645,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,
@@ -618,12 +658,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,
@@ -636,12 +671,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,
@@ -654,12 +684,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,
@@ -672,12 +697,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 55,
       "confidence": 1.0,
       "enabled": true,
@@ -690,12 +710,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 64,
       "confidence": 1.0,
       "enabled": true,
@@ -708,12 +723,7 @@
       "category": "소화기내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "담",
-        "간",
-        "소장",
-        "수술"
-      ],
+      "context_hint": ["담", "간", "소장", "수술"],
       "priority": 57,
       "confidence": 1.0,
       "enabled": true,
@@ -726,11 +736,7 @@
       "category": "내분비내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "호르몬",
-        "부신",
-        "증후군"
-      ],
+      "context_hint": ["호르몬", "부신", "증후군"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,
@@ -743,11 +749,7 @@
       "category": "내분비내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "호르몬",
-        "부신",
-        "증후군"
-      ],
+      "context_hint": ["호르몬", "부신", "증후군"],
       "priority": 55,
       "confidence": 1.0,
       "enabled": true,
@@ -760,11 +762,7 @@
       "category": "내분비내과",
       "strategy": "exact",
       "pattern": null,
-      "context_hint": [
-        "호르몬",
-        "부신",
-        "증후군"
-      ],
+      "context_hint": ["호르몬", "부신", "증후군"],
       "priority": 56,
       "confidence": 1.0,
       "enabled": true,

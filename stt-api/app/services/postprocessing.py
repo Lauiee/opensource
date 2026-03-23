@@ -683,13 +683,10 @@ class TextPostProcessor:
         """복용 빈도 정규화."""
         changes: list[dict] = []
 
-        # "일 일 이 회", "일일이회", "1일 2회" 등 다양한 형태
+        # 한자어만 숫자 변환 (고유어 한두세네는 한국어 유지)
         freq_patterns = [
-            # "하루 세 번" → "하루 3번"
-            (r"하루\s*([한두세네다섯여섯일곱여덟아홉열])\s*번", self._freq_native_replacer),
-            # "일일 이회" / "일 일 이 회" / "1일 2회" 등
+            # "일일 이회" / "일 일 이 회" → "1일 2회"
             (r"일\s*일\s*([일이삼사오육칠팔구])\s*회", self._freq_sino_replacer),
-            # "하루 2번" — 이미 아라비아 숫자인 경우 건너뜀
         ]
 
         for pattern_str, replacer_func in freq_patterns:
@@ -797,11 +794,8 @@ class TextPostProcessor:
         """고유어 숫자 + 단위 정규화: "두 달" → "2달", "세 알" → "3알"."""
         changes: list[dict] = []
 
-        # 고유어 숫자 + 단위
-        native_units = [
-            "달", "번", "개", "알", "정", "캡슐", "포", "병",
-            "잔", "숟가락", "방울", "통",
-        ]
+        # 고유어(한두세네)는 숫자 변환 안 함 — 한국어 유지
+        native_units: list[str] = []
 
         # 고유어 숫자 패턴 (키 길이 역순으로 정렬 — 긴 것 먼저 매칭)
         sorted_native = sorted(_NATIVE_KOREAN_NUMBERS.keys(), key=len, reverse=True)
