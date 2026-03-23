@@ -12,6 +12,29 @@ from app.services.transcription import transcribe_with_segments
 logger = logging.getLogger(__name__)
 
 
+def _merge_segments(
+    segments: list[dict],
+    max_gap_s: float = 1.0,
+    max_duration_s: float = 15.0,
+) -> list[dict]:
+    """인접 세그먼트 병합. gap이 짧거나 세그먼트가 짧으면 묶어 후처리 호출 감소."""
+    if not segments or len(segments) <= 1:
+        return segments
+    merged: list[dict] = []
+    acc = dict(segments[0])
+    for seg in segments[1:]:
+        gap = seg["start"] - acc["end"]
+        duration = acc["end"] - acc["start"]
+        if gap <= max_gap_s and duration + gap + (seg["end"] - seg["start"]) <= max_duration_s:
+            acc["end"] = seg["end"]
+            acc["text"] = (acc.get("text", "") + " " + seg.get("text", "")).strip()
+        else:
+            merged.append(acc)
+            acc = dict(seg)
+    merged.append(acc)
+    return merged
+
+
 def _assign_speaker_to_segments(
     transcript_segments: list[dict],
     diar_segments: list[dict],
@@ -63,6 +86,13 @@ def _run_transcribe_sync(
     settings = get_settings()
     if settings.enable_postprocessing:
         segments = deduplicate_segments(segments)
+        if settings.enable_segment_merge:
+            segments = _merge_segments(
+                segments,
+                max_gap_s=settings.segment_merge_max_gap_s,
+                max_duration_s=settings.segment_merge_max_duration_s,
+            )
+            logger.info("세그먼트 병합 적용")
         for seg in segments:
             seg["text"] = postprocess_text(seg.get("text", ""))
     return segments

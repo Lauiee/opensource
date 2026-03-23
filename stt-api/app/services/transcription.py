@@ -50,7 +50,7 @@ def get_initial_prompt(specialty: str | None = None) -> str:
 
     return _FW_DEFAULT_PROMPT
 
-_BEAM_TO_REP_PENALTY: dict[int, float] = {5: 1.2, 10: 1.2, 15: 1.1, 20: 1.1}
+_BEAM_TO_REP_PENALTY: dict[int, float] = {3: 1.2, 5: 1.2, 10: 1.2, 15: 1.1, 20: 1.1}
 
 
 def _setup_cuda_dll_paths() -> None:

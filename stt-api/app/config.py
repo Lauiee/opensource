@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         default="large-v3", validation_alias="FASTER_WHISPER_MODEL",
     )
     faster_whisper_beam_size: int = Field(
-        default=5, validation_alias="FASTER_WHISPER_BEAM_SIZE",
+        default=3, validation_alias="FASTER_WHISPER_BEAM_SIZE",  # 5→3: 속도↑ 품질 유지
     )
     faster_whisper_compute_type: str = Field(
         default="float16", validation_alias="FASTER_WHISPER_COMPUTE_TYPE",
@@ -51,6 +51,11 @@ class Settings(BaseSettings):
 
     # 화자교정 GPT 사용 여부
     enable_speaker_gpt: bool = Field(default=True, validation_alias="ENABLE_SPEAKER_GPT")
+
+    # 세그먼트 병합 (인접 세그먼트 묶어 후처리/GPT 호출 감소 → 속도 향상)
+    enable_segment_merge: bool = Field(default=True, validation_alias="ENABLE_SEGMENT_MERGE")
+    segment_merge_max_gap_s: float = Field(default=1.0, validation_alias="SEGMENT_MERGE_MAX_GAP_S")
+    segment_merge_max_duration_s: float = Field(default=15.0, validation_alias="SEGMENT_MERGE_MAX_DURATION_S")
 
     # 화자 분리 (pyannote) - HUGGINGFACE_TOKEN 필요 (또는 huggingface-cli login)
     enable_diarization: bool = Field(default=True, validation_alias="ENABLE_DIARIZATION")
