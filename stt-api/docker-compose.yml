@@ -1,5 +1,3 @@
-name: stt-opensource
-
 services:
   stt-api:
     build: .
