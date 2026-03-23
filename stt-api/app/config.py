@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         default="large-v3", validation_alias="FASTER_WHISPER_MODEL",
     )
     faster_whisper_beam_size: int = Field(
-        default=3, validation_alias="FASTER_WHISPER_BEAM_SIZE",  # 5→3: 속도↑ 품질 유지
+        default=5, validation_alias="FASTER_WHISPER_BEAM_SIZE",
     )
     faster_whisper_compute_type: str = Field(
         default="float16", validation_alias="FASTER_WHISPER_COMPUTE_TYPE",
