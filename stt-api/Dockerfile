@@ -24,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
 WORKDIR /app
 COPY pyproject.toml ./
 COPY app/ ./app/
+COPY data/ ./data/
 RUN pip install -e .
 
 EXPOSE 8000
