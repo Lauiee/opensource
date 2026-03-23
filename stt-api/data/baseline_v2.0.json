@@ -1,0 +1,233 @@
+[
+  {
+    "type_num": 1,
+    "wer": 0.2167,
+    "cer": 0.1899,
+    "ref_words": 60,
+    "hyp_words": 52,
+    "substitutions": 5,
+    "insertions": 0,
+    "deletions": 8,
+    "elapsed": 3.810649871826172
+  },
+  {
+    "type_num": 2,
+    "wer": 0.55,
+    "cer": 0.4333,
+    "ref_words": 140,
+    "hyp_words": 159,
+    "substitutions": 44,
+    "insertions": 26,
+    "deletions": 7,
+    "elapsed": 5.205428600311279
+  },
+  {
+    "type_num": 3,
+    "wer": 0.4475,
+    "cer": 0.3304,
+    "ref_words": 181,
+    "hyp_words": 134,
+    "substitutions": 30,
+    "insertions": 2,
+    "deletions": 49,
+    "elapsed": 5.257153749465942
+  },
+  {
+    "type_num": 4,
+    "wer": 0.631,
+    "cer": 0.5525,
+    "ref_words": 84,
+    "hyp_words": 71,
+    "substitutions": 40,
+    "insertions": 0,
+    "deletions": 13,
+    "elapsed": 5.251362562179565
+  },
+  {
+    "type_num": 5,
+    "wer": 0.6099,
+    "cer": 0.3745,
+    "ref_words": 382,
+    "hyp_words": 254,
+    "substitutions": 105,
+    "insertions": 0,
+    "deletions": 128,
+    "elapsed": 16.811689138412476
+  },
+  {
+    "type_num": 6,
+    "wer": 0.5833,
+    "cer": 0.4673,
+    "ref_words": 60,
+    "hyp_words": 46,
+    "substitutions": 19,
+    "insertions": 1,
+    "deletions": 15,
+    "elapsed": 6.191834211349487
+  },
+  {
+    "type_num": 7,
+    "wer": 0.3391,
+    "cer": 0.2411,
+    "ref_words": 4247,
+    "hyp_words": 3811,
+    "substitutions": 732,
+    "insertions": 136,
+    "deletions": 572,
+    "elapsed": 47.81758117675781
+  },
+  {
+    "type_num": 8,
+    "wer": 0.2409,
+    "cer": 0.1647,
+    "ref_words": 303,
+    "hyp_words": 312,
+    "substitutions": 36,
+    "insertions": 23,
+    "deletions": 14,
+    "elapsed": 6.094721794128418
+  },
+  {
+    "type_num": 9,
+    "wer": 0.1995,
+    "cer": 0.1688,
+    "ref_words": 416,
+    "hyp_words": 383,
+    "substitutions": 32,
+    "insertions": 9,
+    "deletions": 42,
+    "elapsed": 7.3371663093566895
+  },
+  {
+    "type_num": 10,
+    "wer": 0.2895,
+    "cer": 0.1321,
+    "ref_words": 38,
+    "hyp_words": 38,
+    "substitutions": 9,
+    "insertions": 1,
+    "deletions": 1,
+    "elapsed": 2.515000581741333
+  },
+  {
+    "type_num": 11,
+    "wer": 0.4624,
+    "cer": 0.4103,
+    "ref_words": 186,
+    "hyp_words": 190,
+    "substitutions": 36,
+    "insertions": 27,
+    "deletions": 23,
+    "elapsed": 7.302610874176025
+  },
+  {
+    "type_num": 12,
+    "wer": 0.125,
+    "cer": 0.0846,
+    "ref_words": 48,
+    "hyp_words": 46,
+    "substitutions": 4,
+    "insertions": 0,
+    "deletions": 2,
+    "elapsed": 2.7389543056488037
+  },
+  {
+    "type_num": 13,
+    "wer": 0.1046,
+    "cer": 0.0464,
+    "ref_words": 239,
+    "hyp_words": 240,
+    "substitutions": 14,
+    "insertions": 6,
+    "deletions": 5,
+    "elapsed": 8.323029518127441
+  },
+  {
+    "type_num": 14,
+    "wer": 0.2059,
+    "cer": 0.1735,
+    "ref_words": 34,
+    "hyp_words": 29,
+    "substitutions": 2,
+    "insertions": 0,
+    "deletions": 5,
+    "elapsed": 3.563947916030884
+  },
+  {
+    "type_num": 15,
+    "wer": 0.0952,
+    "cer": 0.0469,
+    "ref_words": 63,
+    "hyp_words": 60,
+    "substitutions": 3,
+    "insertions": 0,
+    "deletions": 3,
+    "elapsed": 3.7918357849121094
+  },
+  {
+    "type_num": 16,
+    "wer": 0.3493,
+    "cer": 0.315,
+    "ref_words": 1128,
+    "hyp_words": 938,
+    "substitutions": 158,
+    "insertions": 23,
+    "deletions": 213,
+    "elapsed": 15.530319213867188
+  },
+  {
+    "type_num": 17,
+    "wer": 0.3404,
+    "cer": 0.2498,
+    "ref_words": 755,
+    "hyp_words": 620,
+    "substitutions": 98,
+    "insertions": 12,
+    "deletions": 147,
+    "elapsed": 12.970277309417725
+  },
+  {
+    "type_num": 18,
+    "wer": 0.3993,
+    "cer": 0.3303,
+    "ref_words": 904,
+    "hyp_words": 921,
+    "substitutions": 154,
+    "insertions": 112,
+    "deletions": 95,
+    "elapsed": 31.258170127868652
+  },
+  {
+    "type_num": 19,
+    "wer": 0.3968,
+    "cer": 0.2812,
+    "ref_words": 436,
+    "hyp_words": 385,
+    "substitutions": 92,
+    "insertions": 15,
+    "deletions": 66,
+    "elapsed": 8.086635112762451
+  },
+  {
+    "type_num": 20,
+    "wer": 0.1785,
+    "cer": 0.1172,
+    "ref_words": 577,
+    "hyp_words": 526,
+    "substitutions": 40,
+    "insertions": 6,
+    "deletions": 57,
+    "elapsed": 16.37991714477539
+  },
+  {
+    "type_num": 21,
+    "wer": 0.3202,
+    "cer": 0.2832,
+    "ref_words": 431,
+    "hyp_words": 397,
+    "substitutions": 78,
+    "insertions": 13,
+    "deletions": 47,
+    "elapsed": 7.542906284332275
+  }
+]

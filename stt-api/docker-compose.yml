@@ -2,8 +2,11 @@ services:
   stt-api:
     build: .
     ports:
-      - "8080:8000"
+      - "8080:8080"
     env_file: .env
+    volumes:
+      # whisper-medical-ko 등 로컬 모델 (호스트 models/ → 컨테이너 /app/models/)
+      - ./models:/app/models:ro
     deploy:
       resources:
         reservations:

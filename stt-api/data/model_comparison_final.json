@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-03-23T12:09:39",
+  "conclusion": "large-v3 remains best",
+  "models": {
+    "large-v3": {
+      "avg_cer": 27.114285714285717,
+      "wins": 18
+    },
+    "seastar105": {
+      "avg_cer": 53.3,
+      "wins": 1,
+      "truncated_types": 8
+    },
+    "jangmin": {
+      "avg_cer": 80.2,
+      "wins": 2,
+      "hallucination_types": 6
+    }
+  }
+}

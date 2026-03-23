@@ -154,6 +154,16 @@ except Exception as exc:
     _component_status["viewer"]["error"] = str(exc)
     logger.warning("뷰어 모듈 로드 실패: %s", exc)
 
+# 2-1) 평가(WER/CER) 라우터 등록
+try:
+    from app.evaluation_router import router as eval_router
+    app.include_router(eval_router, prefix="/api/evaluation", tags=["evaluation"])
+    _component_status["evaluation"] = {"loaded": True, "error": None}
+    logger.info("WER/CER 평가 모듈 활성화")
+except Exception as exc:
+    _component_status["evaluation"] = {"loaded": False, "error": str(exc)}
+    logger.warning("평가 모듈 로드 실패: %s", exc)
+
 # 3) STT 엔진 (transcribe 관련)
 try:
     from app.services.audio import download_audio, ensure_wav_16k_mono

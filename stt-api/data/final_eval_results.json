@@ -1,0 +1,189 @@
+{
+  "timestamp": "2026-03-23T19:47:13",
+  "avg_raw": 20.0,
+  "avg_corrected": 19.1,
+  "avg_semantic": 18.3,
+  "count": 20,
+  "types": [
+    {
+      "type": 1,
+      "specialty": "내과",
+      "cer_raw": 8.3,
+      "cer_corrected": 8.3,
+      "cer_semantic": 6.6,
+      "config": "b10,T",
+      "enhanced": true
+    },
+    {
+      "type": 2,
+      "specialty": "내분비내과",
+      "cer_raw": 41.6,
+      "cer_corrected": 41.6,
+      "cer_semantic": 41.1,
+      "config": "b5,F",
+      "enhanced": false
+    },
+    {
+      "type": 3,
+      "specialty": "간담도외과",
+      "cer_raw": 6.2,
+      "cer_corrected": 5.5,
+      "cer_semantic": 4.6,
+      "config": "b10,F",
+      "enhanced": false
+    },
+    {
+      "type": 4,
+      "specialty": "안과",
+      "cer_raw": 34.8,
+      "cer_corrected": 31.7,
+      "cer_semantic": 32.4,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 5,
+      "specialty": "정형외과",
+      "cer_raw": 20.0,
+      "cer_corrected": 19.9,
+      "cer_semantic": 19.8,
+      "config": "b5,T",
+      "enhanced": true
+    },
+    {
+      "type": 6,
+      "specialty": "간담도외과",
+      "cer_raw": 29.0,
+      "cer_corrected": 29.0,
+      "cer_semantic": 27.0,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 8,
+      "specialty": "비뇨기과",
+      "cer_raw": 15.7,
+      "cer_corrected": 15.7,
+      "cer_semantic": 15.0,
+      "config": "b10,T",
+      "enhanced": false
+    },
+    {
+      "type": 9,
+      "specialty": "정형외과",
+      "cer_raw": 14.0,
+      "cer_corrected": 13.5,
+      "cer_semantic": 12.6,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 10,
+      "specialty": "정형외과",
+      "cer_raw": 24.5,
+      "cer_corrected": 15.5,
+      "cer_semantic": 12.3,
+      "config": "b10,T",
+      "enhanced": true
+    },
+    {
+      "type": 11,
+      "specialty": "내과",
+      "cer_raw": 36.9,
+      "cer_corrected": 36.2,
+      "cer_semantic": 35.0,
+      "config": "b5,F",
+      "enhanced": true
+    },
+    {
+      "type": 12,
+      "specialty": "감염내과",
+      "cer_raw": 7.5,
+      "cer_corrected": 7.5,
+      "cer_semantic": 7.5,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 13,
+      "specialty": "정형외과",
+      "cer_raw": 3.8,
+      "cer_corrected": 3.5,
+      "cer_semantic": 3.6,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 14,
+      "specialty": "호흡기내과",
+      "cer_raw": 11.5,
+      "cer_corrected": 11.5,
+      "cer_semantic": 7.5,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 15,
+      "specialty": "호흡기내과",
+      "cer_raw": 0.6,
+      "cer_corrected": 0.6,
+      "cer_semantic": 0.6,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 16,
+      "specialty": "정형외과",
+      "cer_raw": 27.0,
+      "cer_corrected": 27.0,
+      "cer_semantic": 26.4,
+      "config": "b10,T",
+      "enhanced": false
+    },
+    {
+      "type": 17,
+      "specialty": "정형외과",
+      "cer_raw": 20.3,
+      "cer_corrected": 20.4,
+      "cer_semantic": 19.2,
+      "config": "b10,T",
+      "enhanced": false
+    },
+    {
+      "type": 18,
+      "specialty": "정형외과",
+      "cer_raw": 33.6,
+      "cer_corrected": 33.3,
+      "cer_semantic": 33.6,
+      "config": "b5,F",
+      "enhanced": false
+    },
+    {
+      "type": 19,
+      "specialty": "정형외과",
+      "cer_raw": 28.4,
+      "cer_corrected": 27.8,
+      "cer_semantic": 27.2,
+      "config": "b5,T",
+      "enhanced": true
+    },
+    {
+      "type": 20,
+      "specialty": "신장내과",
+      "cer_raw": 12.4,
+      "cer_corrected": 11.2,
+      "cer_semantic": 10.9,
+      "config": "b5,T",
+      "enhanced": false
+    },
+    {
+      "type": 21,
+      "specialty": "내과",
+      "cer_raw": 23.3,
+      "cer_corrected": 23.3,
+      "cer_semantic": 22.8,
+      "config": "b5,F",
+      "enhanced": true
+    }
+  ]
+}

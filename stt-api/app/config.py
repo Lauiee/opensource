@@ -52,11 +52,6 @@ class Settings(BaseSettings):
     # 화자교정 GPT 사용 여부
     enable_speaker_gpt: bool = Field(default=True, validation_alias="ENABLE_SPEAKER_GPT")
 
-    # 세그먼트 병합 (인접 세그먼트 묶어 후처리/GPT 호출 감소 → 속도 향상)
-    enable_segment_merge: bool = Field(default=True, validation_alias="ENABLE_SEGMENT_MERGE")
-    segment_merge_max_gap_s: float = Field(default=1.0, validation_alias="SEGMENT_MERGE_MAX_GAP_S")
-    segment_merge_max_duration_s: float = Field(default=15.0, validation_alias="SEGMENT_MERGE_MAX_DURATION_S")
-
     # 화자 분리 (pyannote) - HUGGINGFACE_TOKEN 필요 (또는 huggingface-cli login)
     enable_diarization: bool = Field(default=True, validation_alias="ENABLE_DIARIZATION")
     huggingface_token: str = Field(default="", validation_alias="HUGGINGFACE_TOKEN")

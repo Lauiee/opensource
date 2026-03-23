@@ -27,13 +27,25 @@ _FW_DEFAULT_PROMPT = (
 )
 
 
-def get_initial_prompt(specialty: str | None = None) -> str:
+def get_initial_prompt(specialty: str | None = None, type_num: int | None = None) -> str:
     """진료과에 맞는 Whisper 초기 프롬프트 생성.
 
-    1. medical_dict.json의 prompt_terms 로드 (있으면)
-    2. 진료과 힌트가 있으면 해당 진료과 강조
-    3. 없으면 기본 정형외과 프롬프트 사용
+    우선순위:
+    1. 진료과별 전문 프롬프트 세트 (specialty_prompts.py)
+    2. medical_dict.json의 prompt_terms
+    3. 기본 정형외과 프롬프트
     """
+    # 1) 진료과별 전문 프롬프트 (가장 높은 우선순위)
+    try:
+        from app.services.specialty_prompts import get_specialty_prompt
+        prompt = get_specialty_prompt(specialty=specialty, type_num=type_num)
+        if prompt:
+            logger.debug("진료과별 프롬프트 사용: specialty=%s, type_num=%s", specialty, type_num)
+            return prompt
+    except ImportError:
+        pass
+
+    # 2) medical_dict.json의 prompt_terms
     try:
         import json
         dict_path = Path(get_settings().medical_dict_path)
@@ -48,9 +60,10 @@ def get_initial_prompt(specialty: str | None = None) -> str:
     except Exception:
         pass
 
+    # 3) 기본 프롬프트
     return _FW_DEFAULT_PROMPT
 
-_BEAM_TO_REP_PENALTY: dict[int, float] = {3: 1.2, 5: 1.2, 10: 1.2, 15: 1.1, 20: 1.1}
+_BEAM_TO_REP_PENALTY: dict[int, float] = {5: 1.2, 10: 1.2, 15: 1.1, 20: 1.1}
 
 
 def _setup_cuda_dll_paths() -> None:
@@ -113,6 +126,7 @@ def transcribe_with_segments(
     language: str = "ko",
     model: str | None = None,
     specialty: str | None = None,
+    type_num: int | None = None,
 ) -> list[dict]:
     """
     Faster-Whisper로 전사.
@@ -122,6 +136,7 @@ def transcribe_with_segments(
         language: 언어 코드 (기본: "ko")
         model: 미사용 (API 호환)
         specialty: 진료과 힌트 (예: "정형외과") — 초기 프롬프트 최적화
+        type_num: Type 번호 (1~16) — 진료과 자동 매핑용
 
     Returns list of {"start": float, "end": float, "text": str}.
     """
@@ -134,7 +149,7 @@ def transcribe_with_segments(
     rep_penalty = _BEAM_TO_REP_PENALTY.get(beam_size, 1.05)
 
     # 진료과에 맞는 초기 프롬프트 사용
-    initial_prompt = get_initial_prompt(specialty)
+    initial_prompt = get_initial_prompt(specialty, type_num=type_num)
 
     segments, _info = fw_model.transcribe(
         str(wav_path),
@@ -143,7 +158,7 @@ def transcribe_with_segments(
         vad_filter=True,
         vad_parameters={
             "min_silence_duration_ms": 500,
-            "speech_pad_ms": 500,
+            "speech_pad_ms": 400,
             "threshold": 0.5,
         },
         initial_prompt=initial_prompt,
@@ -158,5 +173,70 @@ def transcribe_with_segments(
     for seg in segments:
         text = (seg.text or "").strip()
         if text:
-            out.append({"start": seg.start, "end": seg.end, "text": text})
+            # 전사 단계 환각 필터링: 불가능한 날짜 반복 제거
+            text = _filter_transcription_hallucinations(text)
+            if text:
+                out.append({
+                    "start": seg.start,
+                    "end": seg.end,
+                    "text": text,
+                    "confidence": _seg_confidence(seg),
+                })
     return out
+
+
+def _seg_confidence(seg) -> float:
+    """세그먼트의 신뢰도 점수 (0.0~1.0)."""
+    try:
+        avg_logprob = getattr(seg, 'avg_logprob', None)
+        no_speech_prob = getattr(seg, 'no_speech_prob', None)
+        if avg_logprob is not None:
+            # avg_logprob은 보통 -0.1(높은신뢰) ~ -1.5(낮은신뢰) 범위
+            conf = max(0.0, min(1.0, 1.0 + avg_logprob))
+            if no_speech_prob is not None and no_speech_prob > 0.5:
+                conf *= 0.5  # 비음성 확률이 높으면 신뢰도 낮춤
+            return round(conf, 3)
+    except Exception:
+        pass
+    return 0.5
+
+
+import re as _re
+
+# 불가능한 월 패턴 (13월 이상)
+_IMPOSSIBLE_MONTH = _re.compile(r"(?:1[3-9]|[2-9]\d)월")
+# 연속 반복 패턴 ("N월부터" 5회 이상 반복)
+_REPEATED_MONTH = _re.compile(r"(\d{1,2}월부터\.?\s*){5,}")
+# 연속 숫자 나열 환각 ("1 2 3 4 5 6 7 8")
+_NUMBER_SEQUENCE = _re.compile(r"(?:\d\s+){6,}\d")
+
+
+def _filter_transcription_hallucinations(text: str) -> str:
+    """전사 단계에서 명백한 환각을 필터링.
+
+    - 13월 이상의 불가능한 월 표현
+    - "N월부터" 5회 이상 반복
+    - 숫자 나열 환각 (1 2 3 4 5 6 7 8)
+    """
+    if not text:
+        return text
+
+    # 불가능한 월 반복 제거
+    text = _REPEATED_MONTH.sub("", text)
+
+    # 개별 불가능한 월도 제거 (13월~99월)
+    if _IMPOSSIBLE_MONTH.search(text):
+        # 불가능한 월이 포함된 경우, 해당 부분만 제거
+        text = _IMPOSSIBLE_MONTH.sub("", text)
+
+    # 숫자 나열 환각 제거
+    text = _NUMBER_SEQUENCE.sub("", text)
+
+    # 정리
+    text = _re.sub(r'\s+', ' ', text).strip()
+
+    # 남은 텍스트가 너무 짧으면 환각으로 간주
+    if len(text) < 2:
+        return ""
+
+    return text

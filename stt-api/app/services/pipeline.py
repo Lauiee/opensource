@@ -12,29 +12,6 @@ from app.services.transcription import transcribe_with_segments
 logger = logging.getLogger(__name__)
 
 
-def _merge_segments(
-    segments: list[dict],
-    max_gap_s: float = 1.0,
-    max_duration_s: float = 15.0,
-) -> list[dict]:
-    """인접 세그먼트 병합. gap이 짧거나 세그먼트가 짧으면 묶어 후처리 호출 감소."""
-    if not segments or len(segments) <= 1:
-        return segments
-    merged: list[dict] = []
-    acc = dict(segments[0])
-    for seg in segments[1:]:
-        gap = seg["start"] - acc["end"]
-        duration = acc["end"] - acc["start"]
-        if gap <= max_gap_s and duration + gap + (seg["end"] - seg["start"]) <= max_duration_s:
-            acc["end"] = seg["end"]
-            acc["text"] = (acc.get("text", "") + " " + seg.get("text", "")).strip()
-        else:
-            merged.append(acc)
-            acc = dict(seg)
-    merged.append(acc)
-    return merged
-
-
 def _assign_speaker_to_segments(
     transcript_segments: list[dict],
     diar_segments: list[dict],
@@ -86,13 +63,6 @@ def _run_transcribe_sync(
     settings = get_settings()
     if settings.enable_postprocessing:
         segments = deduplicate_segments(segments)
-        if settings.enable_segment_merge:
-            segments = _merge_segments(
-                segments,
-                max_gap_s=settings.segment_merge_max_gap_s,
-                max_duration_s=settings.segment_merge_max_duration_s,
-            )
-            logger.info("세그먼트 병합 적용")
         for seg in segments:
             seg["text"] = postprocess_text(seg.get("text", ""))
     return segments
@@ -148,4 +118,31 @@ async def transcribe_with_diarization(
     )
 
     # 화자 라벨 할당
-    return _assign_speaker_to_segments(transcript_segments, diar_segments)
+    merged = _assign_speaker_to_segments(transcript_segments, diar_segments)
+
+    # Phase 7: 누락 세그먼트 복구 (갭 분석 + 재전사)
+    try:
+        from app.services.segment_recovery import recover_missing_segments
+        recovery = await loop.run_in_executor(
+            None,
+            lambda: recover_missing_segments(
+                wav_path, merged,
+                language=language, specialty=specialty,
+                min_gap_sec=1.5,
+            ),
+        )
+        if recovery["segments_recovered"] > 0:
+            logger.info(
+                "누락 복구: %d개 갭 중 %d개 복구, %d개 세그먼트 추가",
+                recovery["gaps_found"],
+                recovery["gaps_recovered"],
+                recovery["segments_recovered"],
+            )
+            # 복구된 세그먼트에도 화자 할당
+            merged = _assign_speaker_to_segments(
+                recovery["merged_segments"], diar_segments,
+            )
+    except Exception:
+        logger.debug("누락 복구 모듈 미사용 (정상 동작)")
+
+    return merged

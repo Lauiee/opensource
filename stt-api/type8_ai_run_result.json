@@ -1,0 +1,24 @@
+{
+  "file": "c:\\Users\\aldkg\\Dropbox\\오픈앙트레프레너십 센터\\030. 민간\\015. 히포크랏\\튜링\\test_set\\type8\\donkey_type8.txt",
+  "segments": 31,
+  "speaker_corrected": 4,
+  "tier1": 0,
+  "tier2": 0,
+  "changed_count": 0,
+  "sample_first": {
+    "index": 0,
+    "role_before": "원장님",
+    "role_after": "원장님",
+    "text_before": "그것도 모르고 수술을 하신다고요?",
+    "text_after": "그것도 모르고 수술을 하신다고요?",
+    "text_changed": false
+  },
+  "sample_speaker_changed": {
+    "index": 24,
+    "role_before": "환자",
+    "role_after": "원장님",
+    "text_before": "수술하고 열만 없으면 다음 날 퇴원할 수 있는",
+    "text_after": "수술하고 열만 없으면 다음 날 퇴원할 수 있는",
+    "text_changed": false
+  }
+}

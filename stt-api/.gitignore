@@ -15,3 +15,6 @@ venv/
 dist/
 build/
 *.egg-info/
+
+# ML models (로컬 전용, Git/GitHub에 올리지 않음)
+models/

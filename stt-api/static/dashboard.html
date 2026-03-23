@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STT 성능 대시보드 - 히포크랏</title>
+<style>
+  :root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--text:#e2e8f0;--text-muted:#94a3b8;--accent:#3b82f6;--success:#22c55e;--warning:#f59e0b;--error:#ef4444;--border:#475569;--radius:8px}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Pretendard','Noto Sans KR',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+  h1{font-size:24px;font-weight:700;margin-bottom:24px;display:flex;align-items:center;gap:12px}
+  .badge{background:var(--accent);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+  .card{background:var(--surface);border-radius:var(--radius);padding:16px}
+  .card .label{font-size:11px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+  .card .value{font-size:28px;font-weight:700}
+  .card .sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+  .good{color:var(--success)}.warn{color:var(--warning)}.bad{color:var(--error)}
+  .section{margin-bottom:24px}
+  .section h2{font-size:16px;margin-bottom:12px;color:var(--text-muted)}
+  table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--radius);overflow:hidden}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:13px}
+  th{background:var(--surface2);font-weight:600;font-size:12px;color:var(--text-muted)}
+  tr:last-child td{border-bottom:none}
+  .bar-wrap{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;width:120px}
+  .bar{height:100%;border-radius:4px;transition:width .5s}
+  .bar.green{background:var(--success)}.bar.yellow{background:var(--warning)}.bar.red{background:var(--error)}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:500}
+  .btn:hover{background:#2563eb}
+  .btn:disabled{opacity:0.5;cursor:not-allowed}
+  .btn-group{display:flex;gap:8px;margin-bottom:24px}
+  .loading{text-align:center;padding:40px;color:var(--text-muted)}
+  .spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .trend-row{display:flex;align-items:center;gap:8px}
+  .trend-up{color:var(--error)}
+  .trend-down{color:var(--success)}
+  .chart-area{height:200px;background:var(--surface);border-radius:var(--radius);padding:16px;position:relative}
+  .chart-canvas{width:100%;height:100%}
+  .regression-pass{background:rgba(34,197,94,0.15);border:1px solid var(--success);border-radius:var(--radius);padding:16px;color:var(--success)}
+  .regression-fail{background:rgba(239,68,68,0.15);border:1px solid var(--error);border-radius:var(--radius);padding:16px;color:var(--error)}
+</style>
+</head>
+<body>
+<h1>STT 성능 대시보드 <span class="badge">v2.0</span></h1>
+
+<div class="btn-group">
+  <button class="btn" onclick="runEval()" id="runBtn">전체 평가 실행</button>
+  <button class="btn" onclick="runRegression()" id="regBtn" style="background:var(--surface2)">회귀 테스트</button>
+</div>
+
+<div id="content">
+  <div class="loading" id="loadingMsg">
+    <p>아래 버튼을 클릭하여 평가를 실행하거나, 기존 이력을 불러옵니다...</p>
+  </div>
+</div>
+
+<script>
+const API='';
+
+async function init(){
+  try{
+    const r=await fetch(API+'/api/evaluation/history?limit=1');
+    const d=await r.json();
+    if(d.이력&&d.이력.length>0){
+      renderDashboard(d.이력[d.이력.length-1]);
+    }else{
+      document.getElementById('loadingMsg').innerHTML='<p>평가 이력 없음. "전체 평가 실행" 버튼을 클릭하세요.</p>';
+    }
+  }catch(e){
+    document.getElementById('loadingMsg').innerHTML='<p>API 연결 실패. 서버가 실행 중인지 확인하세요.</p>';
+  }
+}
+
+async function runEval(){
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;btn.textContent='평가 실행 중...';
+  document.getElementById('content').innerHTML='<div class="loading"><div class="spinner"></div><p style="margin-top:12px">전체 타입 평가 실행 중... (1~2분 소요)</p></div>';
+  try{
+    const r=await fetch(API+'/api/evaluation/run');
+    const d=await r.json();
+    renderFullResults(d);
+  }catch(e){
+    document.getElementById('content').innerHTML=`<div class="loading"><p style="color:var(--error)">평가 실패: ${e.message}</p></div>`;
+  }
+  btn.disabled=false;btn.textContent='전체 평가 실행';
+}
+
+async function runRegression(){
+  const btn=document.getElementById('regBtn');
+  btn.disabled=true;btn.textContent='테스트 중...';
+  try{
+    const r=await fetch(API+'/api/evaluation/regression',{method:'POST'});
+    const d=await r.json();
+    renderRegression(d);
+  }catch(e){
+    alert('회귀 테스트 실패: '+e.message);
+  }
+  btn.disabled=false;btn.textContent='회귀 테스트';
+}
+
+function renderDashboard(data){
+  const avg=data.average||data.평균||{};
+  const cerA=avg.cer_after||avg.CER_교정후||0;
+  const werA=avg.wer_after||avg.WER_교정후||0;
+  const cerB=avg.cer_before||avg.CER_교정전||0;
+  const imp=avg.cer_improvement_pct||avg.CER_개선율||0;
+  const types=data.per_type_cer||data.타입별||{};
+  const nTypes=data.types_evaluated||data.평가_타입수||Object.keys(types).length;
+
+  let html=`
+    <div class="grid">
+      <div class="card"><div class="label">평균 CER (교정 후)</div><div class="value ${cerA<0.3?'good':cerA<0.5?'warn':'bad'}">${(cerA*100).toFixed(1)}%</div><div class="sub">교정 전: ${(cerB*100).toFixed(1)}%</div></div>
+      <div class="card"><div class="label">평균 WER (교정 후)</div><div class="value ${werA<0.3?'good':werA<0.5?'warn':'bad'}">${(werA*100).toFixed(1)}%</div></div>
+      <div class="card"><div class="label">CER 개선율</div><div class="value ${imp>0?'good':'bad'}">${imp>0?'+':''}${imp.toFixed(1)}%</div></div>
+      <div class="card"><div class="label">평가 타입 수</div><div class="value">${nTypes}</div><div class="sub">${data.timestamp||''}</div></div>
+    </div>
+
+    <div class="section"><h2>타입별 CER 성능</h2>
+    <table><thead><tr><th>Type</th><th>CER 교정전</th><th>CER 교정후</th><th>성능</th><th>상태</th></tr></thead><tbody>`;
+
+  for(const[t,v] of Object.entries(types)){
+    const b=v.before||v.CER_교정전||0,a=v.after||v.CER_교정후||0;
+    const pct=Math.max(0,Math.min(100,(1-a)*100));
+    const cls=a<0.2?'green':a<0.4?'yellow':'red';
+    const status=a<0.2?'우수':a<0.4?'보통':'개선필요';
+    const statusCls=a<0.2?'good':a<0.4?'warn':'bad';
+    html+=`<tr><td>Type ${t}</td><td>${(b*100).toFixed(1)}%</td><td>${(a*100).toFixed(1)}%</td>
+      <td><div class="bar-wrap"><div class="bar ${cls}" style="width:${pct}%"></div></div></td>
+      <td class="${statusCls}">${status}</td></tr>`;
+  }
+
+  html+='</tbody></table></div>';
+  document.getElementById('content').innerHTML=html;
+}
+
+function renderFullResults(data){
+  // Full evaluation results from /api/evaluation/run
+  const summary=data.요약||data.summary||data;
+  const perType=data.타입별_상세||data.per_type||[];
+
+  let avg_cer_b=0,avg_cer_a=0,avg_wer_b=0,avg_wer_a=0,n=0;
+  const typeData={};
+
+  if(Array.isArray(perType)){
+    perType.forEach(r=>{
+      const t=r.type||r.타입;
+      const cb=r.교정전?.CER||r.before_correction?.cer||0;
+      const ca=r.교정후?.CER||r.after_correction?.cer||0;
+      avg_cer_b+=cb;avg_cer_a+=ca;n++;
+      typeData[t]={before:cb,after:ca};
+    });
+  }
+
+  if(n>0){avg_cer_b/=n;avg_cer_a/=n;}
+  const imp=avg_cer_b>0?((avg_cer_b-avg_cer_a)/avg_cer_b*100):0;
+
+  renderDashboard({
+    average:{cer_before:avg_cer_b,cer_after:avg_cer_a,wer_after:0,cer_improvement_pct:imp},
+    per_type_cer:typeData,
+    types_evaluated:n,
+    timestamp:new Date().toISOString()
+  });
+}
+
+function renderRegression(data){
+  const el=document.createElement('div');
+  el.style.marginBottom='24px';
+  if(data.passed){
+    el.className='regression-pass';
+    el.innerHTML=`<strong>회귀 테스트 통과</strong><br><small>${data.message||'모든 타입에서 성능 유지/개선'}</small>`;
+  }else{
+    el.className='regression-fail';
+    let details='';
+    if(data.regressions){data.regressions.forEach(r=>{details+=`<br>Type ${r.type}: CER ${(r.baseline_cer*100).toFixed(1)}% → ${(r.current_cer*100).toFixed(1)}% (+${r.regression_pct.toFixed(1)}%)`})}
+    el.innerHTML=`<strong>회귀 테스트 실패</strong><br><small>${data.message}</small>${details}`;
+  }
+  document.getElementById('content').prepend(el);
+}
+
+init();
+</script>
+</body>
+</html>

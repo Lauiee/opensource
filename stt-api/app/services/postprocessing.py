@@ -74,7 +74,34 @@ _WHISPER_ARTIFACT_PHRASES: list[str] = [
     "채널에 오신 것을 환영합니다",
     "오늘도 시청해주셔서 감사합니다",
     "끝까지 시청해주셔서 감사합니다",
+    # PDF에서 발견된 의료 STT 환각 패턴 (Type2 등)
+    "환자분께 좀 더 참여해 주시기 바랍니다",
+    "환경화 기업에 동참해봐요",
+    "질환 때문에 병에 관한 자신의 모습을",
+    "질환할 수 있다는 가입",
+    # Type 18 환각
+    "나가기 좋게",
+    "내가 바다 갖고 갈게요",
+    # Type 9 환각
+    "이덕자 님",
+    "복잡해",
 ]
+
+# ── 불가능한 날짜/숫자 환각 패턴 (Type 18에서 13월~55월 반복) ──
+# 이 패턴들은 Whisper가 날짜를 반복 생성하는 심각한 환각
+_IMPOSSIBLE_DATE_PATTERNS: list[str] = [
+    r"\d{1,2}월부터\.?\s*",  # "13월부터. 14월부터..." 같은 불가능한 월 반복
+]
+
+# 13~99월은 존재하지 않으므로 무조건 환각
+_IMPOSSIBLE_MONTH_PATTERN = re.compile(
+    r"(?:1[3-9]|[2-9]\d)월부터\.?\s*"
+)
+
+# 연속 반복 날짜 환각 (같은 패턴이 5번 이상 반복)
+_REPEATED_DATE_PATTERN = re.compile(
+    r"(\d{1,2}월부터\.?\s*){5,}"
+)
 
 # 방송국/미디어 환각 키워드
 _MEDIA_KEYWORDS: list[str] = [
@@ -683,10 +710,13 @@ class TextPostProcessor:
         """복용 빈도 정규화."""
         changes: list[dict] = []
 
-        # 한자어만 숫자 변환 (고유어 한두세네는 한국어 유지)
+        # "일 일 이 회", "일일이회", "1일 2회" 등 다양한 형태
         freq_patterns = [
-            # "일일 이회" / "일 일 이 회" → "1일 2회"
+            # "하루 세 번" → "하루 3번"
+            (r"하루\s*([한두세네다섯여섯일곱여덟아홉열])\s*번", self._freq_native_replacer),
+            # "일일 이회" / "일 일 이 회" / "1일 2회" 등
             (r"일\s*일\s*([일이삼사오육칠팔구])\s*회", self._freq_sino_replacer),
+            # "하루 2번" — 이미 아라비아 숫자인 경우 건너뜀
         ]
 
         for pattern_str, replacer_func in freq_patterns:
@@ -794,8 +824,11 @@ class TextPostProcessor:
         """고유어 숫자 + 단위 정규화: "두 달" → "2달", "세 알" → "3알"."""
         changes: list[dict] = []
 
-        # 고유어(한두세네)는 숫자 변환 안 함 — 한국어 유지
-        native_units: list[str] = []
+        # 고유어 숫자 + 단위
+        native_units = [
+            "달", "번", "개", "알", "정", "캡슐", "포", "병",
+            "잔", "숟가락", "방울", "통",
+        ]
 
         # 고유어 숫자 패턴 (키 길이 역순으로 정렬 — 긴 것 먼저 매칭)
         sorted_native = sorted(_NATIVE_KOREAN_NUMBERS.keys(), key=len, reverse=True)
@@ -987,14 +1020,22 @@ def _get_default_processor() -> TextPostProcessor:
     return _default_processor
 
 
-def postprocess_text(text: str) -> str:
+def postprocess_text(text: str, full_context: str = "") -> str:
     """기존 인터페이스 호환 함수: 텍스트 후처리 후 결과 문자열 반환.
 
     기존 코드에서 postprocess_text()를 호출하던 부분이 변경 없이 동작하도록 유지.
     """
     processor = _get_default_processor()
     result = processor.process(text)
-    return result.processed
+    # 의문문/평서문 교정 (히포크랏 요구사항)
+    corrected = fix_question_marks(result.processed)
+    # LM 기반 문맥 교정 (최신 기술)
+    try:
+        from app.services.lm_rescoring import enhanced_postprocess
+        corrected = enhanced_postprocess(corrected, full_context=full_context)
+    except ImportError:
+        pass
+    return corrected
 
 
 def deduplicate_segments(segments: list) -> list:
@@ -1013,3 +1054,62 @@ def postprocess_with_details(text: str) -> PostProcessResult:
     """후처리 결과를 상세 정보와 함께 반환하는 편의 함수."""
     processor = _get_default_processor()
     return processor.process(text)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# 의문문/평서문 구분 후처리
+# ──────────────────────────────────────────────────────────────────────
+
+# 의문문 패턴: 의문형 어미로 끝나지만 마침표(.)로 끝난 경우 → 물음표(?)로 교정
+_QUESTION_ENDINGS = [
+    # 직접 의문형 어미 — 격식체
+    r"(?:하십니까|합니까|입니까|됩니까|있습니까|없습니까|싶습니까|겠습니까|같습니까)$",
+    r"(?:하셨나요|되셨나요|있으셨나요|오셨나요|계셨나요|드셨나요|하셨습니까)$",
+    r"(?:하셨을까요|되셨을까요|있으셨을까요|없으셨을까요|해주셨을까요)$",
+    # 비격식체 의문
+    r"(?:하세요|되세요|있으세요|없으세요|가세요|오세요|드세요|주세요)$",
+    r"(?:할까요|될까요|있을까요|없을까요|볼까요|갈까요|해볼까요|드릴까요)$",
+    r"(?:하나요|되나요|있나요|없나요|가나요|오나요|아나요|인가요)$",
+    r"(?:해요|돼요|있어요|없어요|가요|와요|봐요|줘요)$",
+    r"(?:하죠|되죠|있죠|없죠|맞죠|괜찮죠|좋죠|알죠|그렇죠|아시죠)$",
+    r"(?:한가|된가|있는가|없는가)$",
+    r"(?:어요|예요|이에요|거예요|세요|시죠)$",
+    # 구어체 의문
+    r"(?:거야|거야요|건가요|건가|신가요|인가)$",
+    r"(?:어디|뭐|언제|어떻게|왜|몇|얼마나)\s",
+]
+
+_QUESTION_PATTERN = re.compile("|".join(_QUESTION_ENDINGS))
+
+
+def fix_question_marks(text: str) -> str:
+    """의문형 어미인데 마침표로 끝난 문장을 물음표로 교정.
+
+    히포크랏 요구사항: 의문문인데 평서문으로 나오는 것 수정.
+    """
+    if not text:
+        return text
+
+    # 마침표로 끝나는 경우만 처리
+    sentences = re.split(r'(?<=[.?!])\s+', text)
+    fixed = []
+
+    for sent in sentences:
+        sent = sent.strip()
+        if not sent:
+            continue
+
+        # 마침표로 끝나는 문장에서 의문형 어미 감지
+        if sent.endswith('.'):
+            core = sent[:-1].strip()
+            if _QUESTION_PATTERN.search(core):
+                sent = core + '?'
+
+        # 물음표 없이 의문형 어미로 끝나는 경우
+        if not sent.endswith(('?', '.', '!')):
+            if _QUESTION_PATTERN.search(sent):
+                sent = sent + '?'
+
+        fixed.append(sent)
+
+    return ' '.join(fixed)

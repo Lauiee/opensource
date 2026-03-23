@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-03-23T12:09:03",
+  "baseline_avg_cer": 27.1,
+  "models": [
+    {
+      "model": "seastar105/whisper-medium-komixv2",
+      "key": "seastar105",
+      "prompt": null,
+      "avg_cer": 53.3
+    },
+    {
+      "model": "seastar105/whisper-medium-komixv2",
+      "key": "seastar105",
+      "prompt": "진료 상담 녹음입니다.",
+      "avg_cer": 100.0
+    }
+  ]
+}
