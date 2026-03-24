@@ -16,15 +16,18 @@ COPY docker_test_main.py ./main.py
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# ---- full: 실제 STT API ----
-FROM python:3.12-slim AS full
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+# ---- full: 실제 STT API (GPU 런타임) ----
+FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04 AS full
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates ffmpeg python3 python3-pip python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY pyproject.toml ./
 COPY app/ ./app/
-RUN pip install -e .
+RUN python3 -m pip install --no-cache-dir -U pip setuptools wheel \
+    && python3 -m pip install --no-cache-dir -e .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
