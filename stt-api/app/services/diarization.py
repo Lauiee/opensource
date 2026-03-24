@@ -1,46 +1,12 @@
 """화자 분리: pyannote.audio (병렬 처리용)."""
 
 import logging
-import os
 from functools import lru_cache
 from pathlib import Path
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
-
-
-def _patch_torch_load_for_pyannote() -> None:
-    """PyTorch 2.6+ weights_only 기본값 변경으로 인한 pyannote 로딩 실패 우회.
-
-    운영에서는 Hugging Face의 공식 pyannote/speaker-diarization-3.1 체크포인트만 사용하므로
-    trusted source 전제로 weights_only=False 기본 동작을 복원한다.
-    """
-    import torch
-
-    # 1) 안전 글로벌 등록 (오류 메시지 권장 사항)
-    try:
-        from torch.serialization import add_safe_globals
-        from torch.torch_version import TorchVersion
-
-        add_safe_globals([TorchVersion])
-    except Exception:
-        pass
-
-    # 2) pyannote 내부 torch.load 호출에서 weights_only 미지정 시 False로 강제
-    if getattr(torch.load, "_stt_pyannote_patched", False):
-        return
-
-    _orig_torch_load = torch.load
-
-    def _torch_load_compat(*args, **kwargs):
-        # pyannote/torch 생태계 일부가 weights_only=True를 넘겨도
-        # 3.1 체크포인트 로딩은 실패하므로 여기서 강제로 False.
-        kwargs["weights_only"] = False
-        return _orig_torch_load(*args, **kwargs)
-
-    _torch_load_compat._stt_pyannote_patched = True
-    torch.load = _torch_load_compat
 
 
 def _get_diarization_pipeline():
@@ -59,11 +25,9 @@ def _get_diarization_pipeline():
             "화자 분리 없이 전사만 하려면 ENABLE_DIARIZATION=false 로 설정하세요."
         )
 
-    _patch_torch_load_for_pyannote()
-
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1",
-        use_auth_token=token,
+        token=token,
     )
     try:
         pipeline.to(torch.device("cuda"))

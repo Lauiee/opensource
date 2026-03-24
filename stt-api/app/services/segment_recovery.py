@@ -177,19 +177,14 @@ def retranscribe_gap(
     gap_audio = slice_audio(wav_path, gap["start"], gap["end"], tmp.name)
 
     try:
-        from app.services.transcription import (
-            _get_faster_whisper_model,
-            get_initial_prompt,
-            _load_wav_float32_16k_mono,
-        )
+        from app.services.transcription import _get_faster_whisper_model, get_initial_prompt
 
         fw_model = _get_faster_whisper_model()
         initial_prompt = get_initial_prompt(specialty)
-        gap_audio_np = _load_wav_float32_16k_mono(gap_audio)
 
         # 더 민감한 파라미터로 전사 시도
         segments_iter, _info = fw_model.transcribe(
-            gap_audio_np,
+            str(gap_audio),
             language=language,
             beam_size=5,
             vad_filter=True,
@@ -415,19 +410,14 @@ def retranscribe_low_confidence(
                 tmp.close()
                 gap_audio = slice_audio(wav_path, seg["start"], seg["end"], tmp.name)
 
-                from app.services.transcription import (
-                    _get_faster_whisper_model,
-                    get_initial_prompt,
-                    _load_wav_float32_16k_mono,
-                )
+                from app.services.transcription import _get_faster_whisper_model, get_initial_prompt
                 fw_model = _get_faster_whisper_model()
                 initial_prompt = get_initial_prompt(specialty)
-                gap_audio_np = _load_wav_float32_16k_mono(gap_audio)
 
                 # 다른 temperature로 시도
                 for temp in [0.2, 0.4]:
                     new_segs, _ = fw_model.transcribe(
-                        gap_audio_np,
+                        str(gap_audio),
                         language=language,
                         beam_size=10,  # 더 큰 beam
                         vad_filter=False,  # VAD 비활성화 (이미 잘라놓았으므로)

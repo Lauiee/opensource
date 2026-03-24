@@ -3,13 +3,10 @@
 import os
 import shutil
 import sys
-import wave
 from functools import lru_cache
 from pathlib import Path
 
 import logging
-
-import numpy as np
 
 from app.config import get_settings
 
@@ -67,35 +64,6 @@ def get_initial_prompt(specialty: str | None = None, type_num: int | None = None
     return _FW_DEFAULT_PROMPT
 
 _BEAM_TO_REP_PENALTY: dict[int, float] = {5: 1.2, 10: 1.2, 15: 1.1, 20: 1.1}
-
-
-def _load_wav_float32_16k_mono(wav_path: str | Path) -> np.ndarray:
-    """16kHz mono PCM WAV를 float32(-1~1) 배열로 로드.
-
-    faster-whisper가 파일 경로를 직접 디코딩할 때 일부 환경에서
-    AudioDecoder NameError가 발생해, 전처리된 WAV를 직접 넘겨 우회한다.
-    """
-    path = Path(wav_path)
-    with wave.open(str(path), "rb") as wf:
-        channels = wf.getnchannels()
-        sample_width = wf.getsampwidth()
-        frame_rate = wf.getframerate()
-        n_frames = wf.getnframes()
-        raw = wf.readframes(n_frames)
-
-    if channels != 1:
-        raise ValueError(f"Expected mono wav, got channels={channels}: {path}")
-    if frame_rate != 16000:
-        raise ValueError(f"Expected 16k wav, got fr={frame_rate}: {path}")
-
-    if sample_width == 2:
-        audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
-        return audio
-    if sample_width == 4:
-        audio = np.frombuffer(raw, dtype=np.int32).astype(np.float32) / 2147483648.0
-        return audio
-
-    raise ValueError(f"Unsupported WAV sample width={sample_width} bytes: {path}")
 
 
 def _setup_cuda_dll_paths() -> None:
@@ -183,10 +151,8 @@ def transcribe_with_segments(
     # 진료과에 맞는 초기 프롬프트 사용
     initial_prompt = get_initial_prompt(specialty, type_num=type_num)
 
-    audio_input = _load_wav_float32_16k_mono(wav_path)
-
     segments, _info = fw_model.transcribe(
-        audio_input,
+        str(wav_path),
         language=lang,
         beam_size=beam_size,
         vad_filter=True,

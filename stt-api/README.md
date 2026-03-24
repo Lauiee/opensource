@@ -41,8 +41,6 @@ python -m app.main
 
 ## Docker 배포 (온프레미스 GPU 서버)
 
-**Donkey 운영 서버 경로·SSH·rsync·`.env` 체크리스트**는 [SERVER_DEPLOY.md](./SERVER_DEPLOY.md)를 보세요. (다른 채팅/세션에서도 동일 절차 재사용)
-
 서버에서 **git clone → .env 설정 → docker 실행**만 하면 됩니다.
 
 ```bash
@@ -58,7 +56,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- **접속**: `http://localhost:8000`
+- **접속**: `http://localhost:8080`
 - **GPU**: docker-compose에 GPU 설정 포함. 서버에 `nvidia-container-toolkit` 설치 필요
   - [NVIDIA 공식 설치 가이드](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
   - 설치 후 `nvidia-smi` 로 GPU 확인, `sudo systemctl restart docker` 실행

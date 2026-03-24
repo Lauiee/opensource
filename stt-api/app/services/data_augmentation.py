@@ -186,15 +186,10 @@ def multi_pass_transcription(
 
     각 결과를 비교하여 가장 긴(= 가장 많은 정보를 담은) 결과 선택.
     """
-    from app.services.transcription import (
-        _get_faster_whisper_model,
-        get_initial_prompt,
-        _load_wav_float32_16k_mono,
-    )
+    from app.services.transcription import _get_faster_whisper_model, get_initial_prompt
 
     fw_model = _get_faster_whisper_model()
     prompt = get_initial_prompt(specialty)
-    audio_np = _load_wav_float32_16k_mono(wav_path)
 
     configs = [
         {"beam_size": 5, "temperature": 0.0, "repetition_penalty": 1.2},
@@ -207,7 +202,7 @@ def multi_pass_transcription(
     for i, cfg in enumerate(configs[:n_passes]):
         try:
             segments, _ = fw_model.transcribe(
-                audio_np,
+                str(wav_path),
                 language="ko",
                 beam_size=cfg["beam_size"],
                 vad_filter=True,

@@ -40,7 +40,6 @@ def two_pass_transcribe(
         get_initial_prompt,
         _filter_transcription_hallucinations,
         _seg_confidence,
-        _load_wav_float32_16k_mono,
     )
     from app.config import get_settings
 
@@ -50,9 +49,8 @@ def two_pass_transcribe(
 
     # ── 1차 전사 ──
     logger.info("1차 전사 시작: %s", wav_path)
-    audio_input = _load_wav_float32_16k_mono(Path(wav_path))
     segments_1, info_1 = fw_model.transcribe(
-        audio_input,
+        str(wav_path),
         language=language,
         beam_size=5,
         vad_filter=True,
@@ -100,7 +98,7 @@ def two_pass_transcribe(
 
     logger.info("2차 전사 시작 (강화 프롬프트)")
     segments_2, info_2 = fw_model.transcribe(
-        audio_input,
+        str(wav_path),
         language=language,
         beam_size=10,  # 더 큰 beam size로 정확도 향상
         vad_filter=True,

@@ -16,5 +16,5 @@ dist/
 build/
 *.egg-info/
 
-# 로컬·서버 가중치 (GitHub 용량 제한, rsync로 배포 — SERVER_DEPLOY.md)
+# Local model weights
 models/
