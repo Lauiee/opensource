@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # 공통
     default_language: str = Field(default="ko", validation_alias="DEFAULT_LANGUAGE")
+    max_concurrent_transcribe: int = Field(default=2, validation_alias="MAX_CONCURRENT_TRANSCRIBE")
 
     # 후처리 (의료 용어 교정, 환각 제거) 적용 여부
     enable_postprocessing: bool = Field(default=True, validation_alias="ENABLE_POSTPROCESSING")

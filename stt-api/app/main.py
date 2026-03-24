@@ -1,9 +1,11 @@
 """STT API Server - Standalone Speech-to-Text API."""
 
+import asyncio
 import logging
 import tempfile
 import time
 import traceback
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -25,6 +27,10 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+_max_concurrent_transcribe = max(1, int(_settings.max_concurrent_transcribe))
+_inflight_transcribe = 0
+_inflight_lock = asyncio.Lock()
 
 # ──────────────────────────────────────────────────────────────────────
 # API 버전 및 메타데이터
@@ -264,6 +270,10 @@ def health():
             "status": overall_status,
             "version": API_VERSION,
             "components": components,
+            "runtime": {
+                "inflight_transcribe": _inflight_transcribe,
+                "max_concurrent_transcribe": _max_concurrent_transcribe,
+            },
         }
     except Exception as e:
         logger.error("헬스체크 실패: %s", e)
@@ -296,6 +306,7 @@ def api_version():
                 "diarization": settings.enable_diarization,
                 "speaker_gpt": settings.enable_speaker_gpt,
                 "log_level": settings.log_level,
+                "max_concurrent_transcribe": settings.max_concurrent_transcribe,
             },
             "components": {
                 name: "loaded" if status["loaded"] else "not_loaded"
@@ -324,6 +335,26 @@ def _check_stt_engine():
         )
 
 
+@asynccontextmanager
+async def _transcribe_slot_guard():
+    """동시 전사 실행 수 제한. 초과 시 429 반환."""
+    global _inflight_transcribe
+    async with _inflight_lock:
+        if _inflight_transcribe >= _max_concurrent_transcribe:
+            raise HTTPException(
+                429,
+                f"동시 전사 요청이 많습니다. 잠시 후 다시 시도해주세요. "
+                f"(limit={_max_concurrent_transcribe})",
+                headers={"Retry-After": "2"},
+            )
+        _inflight_transcribe += 1
+    try:
+        yield
+    finally:
+        async with _inflight_lock:
+            _inflight_transcribe = max(0, _inflight_transcribe - 1)
+
+
 @app.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_url(req: TranscribeUrlRequest):
     """오디오 URL을 받아 전사 결과 반환.
@@ -331,40 +362,40 @@ async def transcribe_url(req: TranscribeUrlRequest):
     지원 형식: wav, mp3, m4a 등 (ffmpeg 지원 형식)
     """
     _check_stt_engine()
+    async with _transcribe_slot_guard():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            src = tmp / "audio"
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
-        src = tmp / "audio"
+            try:
+                await download_audio(req.url, src)
+            except Exception as e:
+                logger.warning("오디오 다운로드 실패: %s (URL: %s)", e, req.url)
+                raise HTTPException(
+                    400,
+                    f"오디오 파일을 다운로드할 수 없습니다: {e}",
+                ) from e
 
-        try:
-            await download_audio(req.url, src)
-        except Exception as e:
-            logger.warning("오디오 다운로드 실패: %s (URL: %s)", e, req.url)
-            raise HTTPException(
-                400,
-                f"오디오 파일을 다운로드할 수 없습니다: {e}",
-            ) from e
+            try:
+                wav_path = ensure_wav_16k_mono(src)
+            except Exception as e:
+                logger.warning("오디오 변환 실패: %s", e)
+                raise HTTPException(
+                    400,
+                    f"오디오 파일을 변환할 수 없습니다. WAV 16kHz mono 형식이 필요합니다: {e}",
+                ) from e
 
-        try:
-            wav_path = ensure_wav_16k_mono(src)
-        except Exception as e:
-            logger.warning("오디오 변환 실패: %s", e)
-            raise HTTPException(
-                400,
-                f"오디오 파일을 변환할 수 없습니다. WAV 16kHz mono 형식이 필요합니다: {e}",
-            ) from e
-
-        try:
-            segments = await transcribe_with_diarization(wav_path, language=req.language)
-        except ValueError as e:
-            logger.warning("전사 파라미터 오류: %s", e)
-            raise HTTPException(400, f"전사 요청 파라미터 오류: {e}") from e
-        except Exception as e:
-            logger.error("전사 실패: %s\n%s", e, traceback.format_exc())
-            raise HTTPException(
-                500,
-                f"음성 전사 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}",
-            ) from e
+            try:
+                segments = await transcribe_with_diarization(wav_path, language=req.language)
+            except ValueError as e:
+                logger.warning("전사 파라미터 오류: %s", e)
+                raise HTTPException(400, f"전사 요청 파라미터 오류: {e}") from e
+            except Exception as e:
+                logger.error("전사 실패: %s\n%s", e, traceback.format_exc())
+                raise HTTPException(
+                    500,
+                    f"음성 전사 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}",
+                ) from e
 
     out = [
         SegmentResponse(
@@ -386,38 +417,38 @@ async def transcribe_file(
 ):
     """오디오 파일 업로드로 전사."""
     _check_stt_engine()
+    async with _transcribe_slot_guard():
+        suffix = Path(file.filename or "audio").suffix or ".bin"
 
-    suffix = Path(file.filename or "audio").suffix or ".bin"
+        try:
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                content = await file.read()
+                tmp.write(content)
+                tmp.flush()
+                tmp_path = Path(tmp.name)
+        except Exception as e:
+            logger.error("업로드 파일 임시 저장 실패: %s", e)
+            raise HTTPException(
+                500,
+                f"업로드된 파일을 처리할 수 없습니다: {e}",
+            ) from e
 
-    try:
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp.flush()
-            tmp_path = Path(tmp.name)
-    except Exception as e:
-        logger.error("업로드 파일 임시 저장 실패: %s", e)
-        raise HTTPException(
-            500,
-            f"업로드된 파일을 처리할 수 없습니다: {e}",
-        ) from e
-
-    try:
-        wav_path = ensure_wav_16k_mono(tmp_path)
-        segments = await transcribe_with_diarization(wav_path, language=language)
-    except ValueError as e:
-        tmp_path.unlink(missing_ok=True)
-        logger.warning("전사 파라미터 오류: %s", e)
-        raise HTTPException(400, f"전사 요청 파라미터 오류: {e}") from e
-    except Exception as e:
-        tmp_path.unlink(missing_ok=True)
-        logger.error("전사 실패: %s\n%s", e, traceback.format_exc())
-        raise HTTPException(
-            500,
-            f"음성 전사 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}",
-        ) from e
-    finally:
-        tmp_path.unlink(missing_ok=True)
+        try:
+            wav_path = ensure_wav_16k_mono(tmp_path)
+            segments = await transcribe_with_diarization(wav_path, language=language)
+        except ValueError as e:
+            tmp_path.unlink(missing_ok=True)
+            logger.warning("전사 파라미터 오류: %s", e)
+            raise HTTPException(400, f"전사 요청 파라미터 오류: {e}") from e
+        except Exception as e:
+            tmp_path.unlink(missing_ok=True)
+            logger.error("전사 실패: %s\n%s", e, traceback.format_exc())
+            raise HTTPException(
+                500,
+                f"음성 전사 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}",
+            ) from e
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     out = [
         SegmentResponse(
