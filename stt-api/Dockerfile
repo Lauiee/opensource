@@ -27,13 +27,8 @@ FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04 AS full
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl ffmpeg software-properties-common \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    python3.12 python3.12-dev python3.12-venv \
+    ca-certificates ffmpeg python3 python3-pip python3-venv \
     && rm -rf /var/lib/apt/lists/*
-
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
 
 WORKDIR /app
 RUN mkdir -p /app/models
@@ -42,8 +37,8 @@ COPY pyproject.toml ./
 COPY app/ ./app/
 COPY data/ ./data/
 COPY static/ ./static/
-RUN python3.12 -m pip install --no-cache-dir -U pip setuptools wheel \
-    && python3.12 -m pip install --no-cache-dir -e .
+RUN python3 -m pip install --no-cache-dir -U pip setuptools wheel \
+    && python3 -m pip install --no-cache-dir -e .
 
 EXPOSE 8000
-CMD ["python3.12", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
