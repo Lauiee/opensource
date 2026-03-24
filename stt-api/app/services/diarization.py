@@ -34,7 +34,9 @@ def _patch_torch_load_for_pyannote() -> None:
     _orig_torch_load = torch.load
 
     def _torch_load_compat(*args, **kwargs):
-        kwargs.setdefault("weights_only", False)
+        # pyannote/torch 생태계 일부가 weights_only=True를 넘겨도
+        # 3.1 체크포인트 로딩은 실패하므로 여기서 강제로 False.
+        kwargs["weights_only"] = False
         return _orig_torch_load(*args, **kwargs)
 
     _torch_load_compat._stt_pyannote_patched = True
