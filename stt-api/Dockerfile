@@ -10,6 +10,9 @@
 #
 # GPU 서버(compose): 호스트 8080 → 컨테이너 8000, NVIDIA 1장
 #   docker compose up -d --build
+#
+# full 은 Faster-Whisper(CTranslate2) GPU용 libcublas/cudnn 이 필요해
+# python:slim 이 아니라 nvidia/cuda 런타임 베이스를 씀 (libcublas.so.12 등).
 
 # ---- test: Docker 동작 확인용 (ML 없음) ----
 FROM python:3.12-slim AS test
@@ -19,10 +22,18 @@ COPY docker_test_main.py ./main.py
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# ---- full: 실제 STT API (SERVER_DEPLOY.md 의 운영 이미지) ----
-FROM python:3.12-slim AS full
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+# ---- full: 실제 STT API (SERVER_DEPLOY.md 의 운영 이미지, GPU) ----
+FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04 AS full
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl ffmpeg software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 python3.12-dev python3.12-venv \
     && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
 
 WORKDIR /app
 RUN mkdir -p /app/models
@@ -31,7 +42,8 @@ COPY pyproject.toml ./
 COPY app/ ./app/
 COPY data/ ./data/
 COPY static/ ./static/
-RUN pip install -e .
+RUN python3.12 -m pip install --no-cache-dir -U pip setuptools wheel \
+    && python3.12 -m pip install --no-cache-dir -e .
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python3.12", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
