@@ -49,7 +49,10 @@ def run_diarization(wav_path: str | Path) -> list[dict]:
     설정에서 num_speakers 지정 시 해당 인원 고정, 없으면 min_speakers 이상으로 자동 탐지 (기본 min=1).
     Returns list of {"start": float, "end": float, "speaker": str}.
     """
+    import torch
+
     from app.config import get_settings
+    from app.services.transcription import _load_wav_float32_16k_mono
 
     path = Path(wav_path)
     pipeline = _get_cached_pipeline()
@@ -63,7 +66,19 @@ def run_diarization(wav_path: str | Path) -> list[dict]:
         if settings.diarization_max_speakers is not None:
             kwargs["max_speakers"] = settings.diarization_max_speakers
 
-    diarization = pipeline(str(path), **kwargs)
+    # 파일 경로 대신 메모리 waveform 전달 → torchaudio.load / torchcodec AudioDecoder NameError 우회
+    audio_np = _load_wav_float32_16k_mono(path)
+    waveform = torch.from_numpy(audio_np.copy()).unsqueeze(0).float()
+    try:
+        _dev = next(pipeline.parameters()).device
+        waveform = waveform.to(_dev)
+    except StopIteration:
+        pass
+
+    diarization = pipeline(
+        {"waveform": waveform, "sample_rate": 16000, "uri": path.stem},
+        **kwargs,
+    )
 
     # pyannote 4.x: DiarizeOutput.speaker_diarization (Annotation)
     # pyannote 3.x: Annotation directly
