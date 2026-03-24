@@ -1,12 +1,20 @@
+# 운영 GPU 서버용 — 전체 절차·.env 예시는 SERVER_DEPLOY.md
+#
+# - 호스트 8080 → 컨테이너 8000 (헬스: :8080/health)
+# - ./models → /app/models (Git 미포함 가중치, 서버에 이미 두고 마운트)
+# - FASTER_WHISPER_MODEL 예: /app/models/whisper-medical-ko-ct2
+
 services:
   stt-api:
-    build: .
+    build:
+      context: .
+      target: full
     ports:
-      - "8080:8080"
+      - "8080:8000"
     env_file: .env
     volumes:
-      # whisper-medical-ko 등 로컬 모델 (호스트 models/ → 컨테이너 /app/models/)
-      - ./models:/app/models:ro
+      - ./models:/app/models
+    restart: unless-stopped
     deploy:
       resources:
         reservations:

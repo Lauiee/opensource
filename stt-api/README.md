@@ -41,58 +41,24 @@ python -m app.main
 
 ## Docker 배포 (온프레미스 GPU 서버)
 
-서버에서 **git clone → .env 설정 → 모델 준비 → docker 실행** 순서로 진행합니다.
+**Donkey 운영 서버 경로·SSH·rsync·`.env` 체크리스트**는 [SERVER_DEPLOY.md](./SERVER_DEPLOY.md)를 보세요. (다른 채팅/세션에서도 동일 절차 재사용)
+
+서버에서 **git clone → .env 설정 → docker 실행**만 하면 됩니다.
 
 ```bash
 # 1. 클론
 git clone <repo-url>
-cd <repo>/stt-api
+cd Donkey-Ai/stt-api
 
 # 2. .env 설정 (필수)
 cp .env.example .env
-# .env 편집: HUGGINGFACE_TOKEN, FASTER_WHISPER_MODEL 등
+# .env 편집: HUGGINGFACE_TOKEN 등
 
-# 3. 모델 준비 (아래 "로컬 모델 사용" 참고)
-
-# 4. 빌드 & 실행
+# 3. 빌드 & 실행
 docker compose up -d --build
 ```
 
-- **접속**: `http://localhost:8080`
-
-### 로컬 모델 사용 (whisper-medical-ko 등)
-
-`whisper-medical-ko`처럼 로컬 파인튜닝 모델을 쓰려면:
-
-**1) 서버에 models 폴더 만들고 모델 복사**
-
-로컬 → 서버:
-
-```bash
-# 로컬에서 (모델 있는 PC)
-rsync -avz --progress stt-api/models/ 서버사용자@서버IP:~/stt-api/models/
-# 또는 scp
-scp -r stt-api/models/ 서버사용자@서버IP:~/stt-api/
-```
-
-서버에서 HuggingFace에서 받는 경우:
-
-```bash
-# huggingface-cli 필요 (pip install huggingface_hub)
-huggingface-cli download <모델저장소명> whisper-medical-ko --local-dir ./models/whisper-medical-ko
-```
-
-**2) .env에 모델 경로 지정**
-
-```bash
-# 컨테이너 내부 경로 (볼륨으로 /app/models 마운트됨)
-FASTER_WHISPER_MODEL=/app/models/whisper-medical-ko
-```
-
-**3) docker-compose로 실행**
-
-`docker-compose.yml`에 `./models:/app/models` 볼륨이 설정되어 있으므로, 서버의 `stt-api/models/whisper-medical-ko`가 컨테이너 `/app/models/whisper-medical-ko`로 마운트됩니다.
-
+- **접속**: `http://localhost:8000`
 - **GPU**: docker-compose에 GPU 설정 포함. 서버에 `nvidia-container-toolkit` 설치 필요
   - [NVIDIA 공식 설치 가이드](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
   - 설치 후 `nvidia-smi` 로 GPU 확인, `sudo systemctl restart docker` 실행

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-03-22T21:18:09.174388+00:00",
+  "updated_at": "2026-03-23T16:00:00Z",
   "prompt_terms": [
     "정형외과",
     "진료",
@@ -2919,6 +2919,224 @@
       "confidence": 0.91,
       "enabled": true,
       "notes": "Type18 CER자동추출 sim=0.91"
+    },
+    {
+      "id": "type2_001",
+      "wrong": "약에 드셨다고",
+      "correct": "다 되셨다고",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "환자분",
+        "대화를 하려고"
+      ],
+      "priority": 80,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_002",
+      "wrong": "대학에 드셨다고",
+      "correct": "다 되셨다고",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "환자분",
+        "대화를 하려고"
+      ],
+      "priority": 80,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_003",
+      "wrong": "알 수 있는 지압인",
+      "correct": "앓고 있는 질환인",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "쿠싱"
+      ],
+      "priority": 80,
+      "confidence": 0.95,
+      "enabled": true
+    },
+    {
+      "id": "type2_004",
+      "wrong": "더욱더 사과를 드리고",
+      "correct": "약도 처방해 드리고",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "환자분"
+      ],
+      "priority": 75,
+      "confidence": 0.85,
+      "enabled": true
+    },
+    {
+      "id": "type2_005",
+      "wrong": "환경을 개정해서 동참을 가요",
+      "correct": "환경을 조성해도 괜찮을까요",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "안전"
+      ],
+      "priority": 75,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_006",
+      "wrong": "환경을 개척해서 동참을 해요",
+      "correct": "환경을 조성해도 괜찮을까요",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "안전",
+        "안정"
+      ],
+      "priority": 75,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_007",
+      "wrong": "칼로 근건들을",
+      "correct": "날카로운 물건들을",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "치우고",
+        "방"
+      ],
+      "priority": 75,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_008",
+      "wrong": "분리상관",
+      "correct": "분리선반",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "막대",
+        "바꿔"
+      ],
+      "priority": 70,
+      "confidence": 0.9,
+      "enabled": true
+    },
+    {
+      "id": "type2_009",
+      "wrong": "입도 멀다간 것 같아요",
+      "correct": "밖에도 못 나가고 있습니다",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "못생겨져"
+      ],
+      "priority": 70,
+      "confidence": 0.8,
+      "enabled": true
+    },
+    {
+      "id": "type2_010",
+      "wrong": "복도 서당을 드리고",
+      "correct": "약도 처방해 드리고",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "환자분"
+      ],
+      "priority": 75,
+      "confidence": 0.85,
+      "enabled": true
+    },
+    {
+      "id": "type2_011",
+      "wrong": "사정 부분은 치료고",
+      "correct": "날카로운 물건들을 치우고",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "방에 있는"
+      ],
+      "priority": 70,
+      "confidence": 0.8,
+      "enabled": true
+    },
+    {
+      "id": "type2_012",
+      "wrong": "보응",
+      "correct": "공",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "분리선반",
+        "막대",
+        "분리상관"
+      ],
+      "priority": 65,
+      "confidence": 0.8,
+      "enabled": true
+    },
+    {
+      "id": "type2_013",
+      "wrong": "구막대",
+      "correct": "공, 막대",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "분리선반",
+        "분리상관",
+        "바꿔"
+      ],
+      "priority": 65,
+      "confidence": 0.8,
+      "enabled": true
+    },
+    {
+      "id": "type2_014",
+      "wrong": "역시 돌아갈",
+      "correct": "다시 돌아갈",
+      "category": "일반",
+      "strategy": "exact",
+      "context_hint": [
+        "다행"
+      ],
+      "priority": 60,
+      "confidence": 0.85,
+      "enabled": true
+    },
+    {
+      "id": "type2_015",
+      "wrong": "눈물을 흘리시는데",
+      "correct": "우울해 보이시는데",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "환자분",
+        "다른"
+      ],
+      "priority": 70,
+      "confidence": 0.7,
+      "enabled": true
+    },
+    {
+      "id": "type2_016",
+      "wrong": "부는 경우에요",
+      "correct": "부은 것도 방사선 치료를 한다면 다시 괜찮아질 수 있습니다",
+      "category": "정신건강",
+      "strategy": "exact",
+      "context_hint": [
+        "얼굴이"
+      ],
+      "priority": 70,
+      "confidence": 0.75,
+      "enabled": true
     }
   ]
 }
