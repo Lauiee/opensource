@@ -9,6 +9,30 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+def _patch_torch_load_for_pyannote() -> None:
+    """PyTorch 2.6+ weights_only 기본값 변경으로 인한 pyannote 로딩 실패 우회."""
+    import torch
+
+    try:
+        from torch.serialization import add_safe_globals
+        from torch.torch_version import TorchVersion
+        add_safe_globals([TorchVersion])
+    except Exception:
+        pass
+
+    if getattr(torch.load, "_stt_pyannote_patched", False):
+        return
+
+    _orig_torch_load = torch.load
+
+    def _torch_load_compat(*args, **kwargs):
+        kwargs["weights_only"] = False
+        return _orig_torch_load(*args, **kwargs)
+
+    _torch_load_compat._stt_pyannote_patched = True
+    torch.load = _torch_load_compat
+
+
 def _get_diarization_pipeline():
     """pyannote 화자 분리 파이프라인 (lazy load)."""
     from pyannote.audio import Pipeline
@@ -25,9 +49,11 @@ def _get_diarization_pipeline():
             "화자 분리 없이 전사만 하려면 ENABLE_DIARIZATION=false 로 설정하세요."
         )
 
+    _patch_torch_load_for_pyannote()
+
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1",
-        token=token,
+        use_auth_token=token,
     )
     try:
         pipeline.to(torch.device("cuda"))
