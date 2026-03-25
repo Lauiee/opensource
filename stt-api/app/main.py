@@ -307,6 +307,7 @@ def api_version():
                 "speaker_gpt": settings.enable_speaker_gpt,
                 "log_level": settings.log_level,
                 "max_concurrent_transcribe": settings.max_concurrent_transcribe,
+                "speaker_alignment_mode": settings.speaker_alignment_mode,
             },
             "components": {
                 name: "loaded" if status["loaded"] else "not_loaded"

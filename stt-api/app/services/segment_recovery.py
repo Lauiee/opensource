@@ -78,6 +78,52 @@ def find_gaps(
 # 2. 오디오 슬라이싱: 갭 구간만 추출
 # ──────────────────────────────────────────────────────────────────────
 
+def slice_audio_meta(
+    wav_path: str | Path,
+    start_sec: float,
+    end_sec: float,
+    output_path: str | Path | None = None,
+    padding_sec: float = 0.5,
+) -> tuple[Path, float, float]:
+    """WAV 구간 추출 + 원본 타임라인에서의 실제 시작/끝(초) 반환."""
+    import wave
+    import tempfile
+
+    wav_path = Path(wav_path)
+    if output_path is None:
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        output_path = Path(tmp.name)
+        tmp.close()
+    else:
+        output_path = Path(output_path)
+
+    with wave.open(str(wav_path), 'rb') as wf:
+        sr = wf.getframerate()
+        n_channels = wf.getnchannels()
+        sampwidth = wf.getsampwidth()
+        total_frames = wf.getnframes()
+        total_duration = total_frames / sr
+
+        actual_start = max(0, start_sec - padding_sec)
+        actual_end = min(total_duration, end_sec + padding_sec)
+
+        start_frame = int(actual_start * sr)
+        end_frame = int(actual_end * sr)
+        n_frames = end_frame - start_frame
+
+        wf.setpos(start_frame)
+        frames = wf.readframes(n_frames)
+
+    with wave.open(str(output_path), 'wb') as out:
+        out.setnchannels(n_channels)
+        out.setsampwidth(sampwidth)
+        out.setframerate(sr)
+        out.writeframes(frames)
+
+    logger.info("오디오 슬라이스: %.1f~%.1fs → %s", actual_start, actual_end, output_path)
+    return output_path, actual_start, actual_end
+
+
 def slice_audio(
     wav_path: str | Path,
     start_sec: float,
@@ -97,43 +143,8 @@ def slice_audio(
     Returns:
         추출된 WAV 파일 경로
     """
-    import wave
-    import tempfile
-
-    wav_path = Path(wav_path)
-    if output_path is None:
-        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-        output_path = Path(tmp.name)
-        tmp.close()
-    else:
-        output_path = Path(output_path)
-
-    with wave.open(str(wav_path), 'rb') as wf:
-        sr = wf.getframerate()
-        n_channels = wf.getnchannels()
-        sampwidth = wf.getsampwidth()
-        total_frames = wf.getnframes()
-        total_duration = total_frames / sr
-
-        # 패딩 적용
-        actual_start = max(0, start_sec - padding_sec)
-        actual_end = min(total_duration, end_sec + padding_sec)
-
-        start_frame = int(actual_start * sr)
-        end_frame = int(actual_end * sr)
-        n_frames = end_frame - start_frame
-
-        wf.setpos(start_frame)
-        frames = wf.readframes(n_frames)
-
-    with wave.open(str(output_path), 'wb') as out:
-        out.setnchannels(n_channels)
-        out.setsampwidth(sampwidth)
-        out.setframerate(sr)
-        out.writeframes(frames)
-
-    logger.info("오디오 슬라이스: %.1f~%.1fs → %s", actual_start, actual_end, output_path)
-    return output_path
+    path, _, _ = slice_audio_meta(wav_path, start_sec, end_sec, output_path, padding_sec)
+    return path
 
 
 def get_audio_duration(wav_path: str | Path) -> float:

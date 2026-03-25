@@ -62,6 +62,13 @@ class Settings(BaseSettings):
     diarization_min_speakers: int = Field(default=1, validation_alias="DIARIZATION_MIN_SPEAKERS")
     diarization_max_speakers: int | None = Field(default=None, validation_alias="DIARIZATION_MAX_SPEAKERS")
 
+    # 화자–전사 정렬: segment(기본)=Whisper 구간에 라벨만 부착,
+    # word_diar=단어 타임스탬프+diar로 구간 재구성, diar_chunk=diar 구간별 개별 전사
+    speaker_alignment_mode: str = Field(
+        default="segment",
+        validation_alias="SPEAKER_ALIGNMENT_MODE",
+    )
+
     @field_validator("diarization_num_speakers", "diarization_max_speakers", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
@@ -75,6 +82,17 @@ class Settings(BaseSettings):
         if v == "" or v is None:
             return 1
         return int(v)
+
+    @field_validator("speaker_alignment_mode", mode="before")
+    @classmethod
+    def normalize_speaker_alignment_mode(cls, v):
+        if v is None or v == "":
+            return "segment"
+        s = str(v).strip().lower()
+        allowed = ("segment", "word_diar", "diar_chunk")
+        if s not in allowed:
+            return "segment"
+        return s
 
     @field_validator("log_level", mode="before")
     @classmethod

@@ -158,6 +158,7 @@ def transcribe_with_segments(
     model: str | None = None,
     specialty: str | None = None,
     type_num: int | None = None,
+    vad_filter: bool = True,
 ) -> list[dict]:
     """
     Faster-Whisper로 전사.
@@ -183,23 +184,27 @@ def transcribe_with_segments(
     initial_prompt = get_initial_prompt(specialty, type_num=type_num)
     audio_input = _load_wav_float32_16k_mono(wav_path)
 
-    segments, _info = fw_model.transcribe(
-        audio_input,
-        language=lang,
-        beam_size=beam_size,
-        vad_filter=True,
-        vad_parameters={
+    transcribe_kw: dict = {
+        "language": lang,
+        "beam_size": beam_size,
+        "initial_prompt": initial_prompt,
+        "condition_on_previous_text": True,
+        "temperature": 0.0,
+        "no_speech_threshold": 0.6,
+        "repetition_penalty": rep_penalty,
+        "hallucination_silence_threshold": 2.0,
+    }
+    if vad_filter:
+        transcribe_kw["vad_filter"] = True
+        transcribe_kw["vad_parameters"] = {
             "min_silence_duration_ms": 500,
             "speech_pad_ms": 400,
             "threshold": 0.5,
-        },
-        initial_prompt=initial_prompt,
-        condition_on_previous_text=True,
-        temperature=0.0,
-        no_speech_threshold=0.6,
-        repetition_penalty=rep_penalty,
-        hallucination_silence_threshold=2.0,
-    )
+        }
+    else:
+        transcribe_kw["vad_filter"] = False
+
+    segments, _info = fw_model.transcribe(audio_input, **transcribe_kw)
 
     out: list[dict] = []
     for seg in segments:
@@ -215,6 +220,60 @@ def transcribe_with_segments(
                     "confidence": _seg_confidence(seg),
                 })
     return out
+
+
+def transcribe_words_flat(
+    wav_path: str | Path,
+    language: str = "ko",
+    specialty: str | None = None,
+    type_num: int | None = None,
+) -> list[dict]:
+    """전체 파일 1회 전사 + 단어 타임스탬프. 화자 정렬(word_diar)용."""
+    settings = get_settings()
+    lang = language or settings.default_language
+    fw_model = _get_faster_whisper_model()
+    beam_size = settings.faster_whisper_beam_size
+    rep_penalty = _BEAM_TO_REP_PENALTY.get(beam_size, 1.05)
+    initial_prompt = get_initial_prompt(specialty, type_num=type_num)
+    audio_input = _load_wav_float32_16k_mono(wav_path)
+
+    transcribe_kw: dict = {
+        "language": lang,
+        "beam_size": beam_size,
+        "word_timestamps": True,
+        "initial_prompt": initial_prompt,
+        "condition_on_previous_text": True,
+        "temperature": 0.0,
+        "no_speech_threshold": 0.6,
+        "repetition_penalty": rep_penalty,
+        "hallucination_silence_threshold": 2.0,
+        "vad_filter": True,
+        "vad_parameters": {
+            "min_silence_duration_ms": 500,
+            "speech_pad_ms": 400,
+            "threshold": 0.5,
+        },
+    }
+    segments, _info = fw_model.transcribe(audio_input, **transcribe_kw)
+
+    words_out: list[dict] = []
+    for seg in segments:
+        wlist = getattr(seg, "words", None) or []
+        for w in wlist:
+            wtxt = (getattr(w, "word", None) or "").strip()
+            if not wtxt:
+                continue
+            ws = float(getattr(w, "start", 0.0))
+            we = float(getattr(w, "end", ws))
+            prob = getattr(w, "probability", None)
+            words_out.append({
+                "start": ws,
+                "end": we,
+                "word": wtxt,
+                "probability": float(prob) if prob is not None else None,
+            })
+    words_out.sort(key=lambda x: (x["start"], x["end"]))
+    return words_out
 
 
 def _seg_confidence(seg) -> float:
