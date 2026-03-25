@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 _max_concurrent_transcribe = max(1, int(_settings.max_concurrent_transcribe))
 _inflight_transcribe = 0
 _inflight_lock = asyncio.Lock()
+_transcribe_semaphore = asyncio.Semaphore(_max_concurrent_transcribe)
 
 # ──────────────────────────────────────────────────────────────────────
 # API 버전 및 메타데이터
@@ -337,22 +338,21 @@ def _check_stt_engine():
 
 @asynccontextmanager
 async def _transcribe_slot_guard():
-    """동시 전사 실행 수 제한. 초과 시 429 반환."""
+    """동시 전사 실행 수 제한.
+
+    - 최대 동시 실행 수(`MAX_CONCURRENT_TRANSCRIBE`)를 넘는 요청은 큐잉(대기)합니다.
+    - 헬스체크 노출용으로 inflight 카운트만 별도 관리합니다.
+    """
     global _inflight_transcribe
+    await _transcribe_semaphore.acquire()
     async with _inflight_lock:
-        if _inflight_transcribe >= _max_concurrent_transcribe:
-            raise HTTPException(
-                429,
-                f"동시 전사 요청이 많습니다. 잠시 후 다시 시도해주세요. "
-                f"(limit={_max_concurrent_transcribe})",
-                headers={"Retry-After": "2"},
-            )
         _inflight_transcribe += 1
     try:
         yield
     finally:
         async with _inflight_lock:
             _inflight_transcribe = max(0, _inflight_transcribe - 1)
+        _transcribe_semaphore.release()
 
 
 @app.post("/transcribe", response_model=TranscribeResponse)
@@ -424,7 +424,7 @@ async def transcribe_temp(req: TranscribeUrlRequest):
 
             try:
                 from app.services.audio import download_audio, ensure_wav_16k_mono
-                from app.services.transcription import transcribe_with_segments
+                from app.services.transcription import transcribe_with_segments_longform
             except Exception as e:
                 raise HTTPException(
                     503,
@@ -453,7 +453,7 @@ async def transcribe_temp(req: TranscribeUrlRequest):
                 loop = asyncio.get_running_loop()
                 raw_segs = await loop.run_in_executor(
                     None,
-                    lambda: transcribe_with_segments(wav_path, language=req.language),
+                    lambda: transcribe_with_segments_longform(wav_path, language=req.language),
                 )
             except ValueError as e:
                 logger.warning("전사 파라미터 오류: %s", e)

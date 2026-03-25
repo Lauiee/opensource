@@ -217,6 +217,127 @@ def transcribe_with_segments(
     return out
 
 
+def transcribe_with_segments_longform(
+    wav_path: str | Path,
+    language: str = "ko",
+    model: str | None = None,
+    specialty: str | None = None,
+    type_num: int | None = None,
+    chunk_seconds: int = 60,
+    overlap_seconds: int = 2,
+) -> list[dict]:
+    """롱폼(긴 오디오)용 전사: WAV를 청크로 나눠 순차 전사.
+
+    - 전체 WAV를 한 번에 메모리에 올리지 않아도 되어 60분 이상 파일에 유리
+    - 청크 경계 누락 방지를 위해 약간의 overlap을 둠
+    """
+    settings = get_settings()
+    lang = language or settings.default_language
+
+    _ = model  # unused, kept for API compatibility
+    fw_model = _get_faster_whisper_model()
+    beam_size = settings.faster_whisper_beam_size
+    rep_penalty = _BEAM_TO_REP_PENALTY.get(beam_size, 1.05)
+
+    initial_prompt = get_initial_prompt(specialty, type_num=type_num)
+    wav_path = Path(wav_path)
+
+    if chunk_seconds <= 0:
+        raise ValueError("chunk_seconds must be positive")
+    if overlap_seconds < 0:
+        raise ValueError("overlap_seconds must be non-negative")
+
+    chunk_frames = int(chunk_seconds * 16000)
+    overlap_frames = int(overlap_seconds * 16000)
+
+    out: list[dict] = []
+    prev_tail: str = ""
+
+    with wave.open(str(wav_path), "rb") as wf:
+        channels = wf.getnchannels()
+        sample_width = wf.getsampwidth()
+        frame_rate = wf.getframerate()
+        n_frames = wf.getnframes()
+
+        if channels != 1:
+            raise ValueError(f"Expected mono wav, got channels={channels}: {wav_path}")
+        if frame_rate != 16000:
+            raise ValueError(f"Expected 16k wav, got fr={frame_rate}: {wav_path}")
+        if sample_width not in (2, 4):
+            raise ValueError(f"Unsupported WAV sample width={sample_width} bytes: {wav_path}")
+
+        main_start = 0
+        while main_start < n_frames:
+            read_start = max(0, main_start - overlap_frames)
+            read_len = min(n_frames - read_start, chunk_frames + (main_start - read_start))
+
+            wf.setpos(read_start)
+            raw = wf.readframes(read_len)
+
+            if sample_width == 2:
+                audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+            else:
+                audio = np.frombuffer(raw, dtype=np.int32).astype(np.float32) / 2147483648.0
+
+            boundary_sec = (main_start - read_start) / 16000.0
+            offset_sec = read_start / 16000.0
+
+            # 청크 간 문맥 유지를 위해 이전 꼬리 일부를 프롬프트에 덧붙임
+            prompt = initial_prompt
+            if prev_tail:
+                prompt = f"{prompt}\n\n이전 문맥: {prev_tail}"
+
+            segments, _info = fw_model.transcribe(
+                audio,
+                language=lang,
+                beam_size=beam_size,
+                vad_filter=True,
+                vad_parameters={
+                    "min_silence_duration_ms": 500,
+                    "speech_pad_ms": 400,
+                    "threshold": 0.5,
+                },
+                initial_prompt=prompt,
+                condition_on_previous_text=True,
+                temperature=0.0,
+                no_speech_threshold=0.6,
+                repetition_penalty=rep_penalty,
+                hallucination_silence_threshold=2.0,
+            )
+
+            chunk_text_parts: list[str] = []
+            for seg in segments:
+                # overlap 구간에서 나온 세그먼트는 다음 청크와 중복될 수 있어 필터링
+                if float(seg.end) <= boundary_sec:
+                    continue
+
+                text = (seg.text or "").strip()
+                if not text:
+                    continue
+
+                text = _filter_transcription_hallucinations(text)
+                if not text:
+                    continue
+
+                chunk_text_parts.append(text)
+                out.append({
+                    "start": float(seg.start) + offset_sec,
+                    "end": float(seg.end) + offset_sec,
+                    "text": text,
+                    "confidence": _seg_confidence(seg),
+                })
+
+            # 다음 청크 프롬프트용으로 최근 텍스트 꼬리만 유지 (너무 길어지는 것 방지)
+            joined = " ".join(chunk_text_parts).strip()
+            if joined:
+                prev_tail = (prev_tail + " " + joined).strip()
+                prev_tail = prev_tail[-400:]
+
+            main_start += chunk_frames
+
+    return out
+
+
 def _seg_confidence(seg) -> float:
     """세그먼트의 신뢰도 점수 (0.0~1.0)."""
     try:
