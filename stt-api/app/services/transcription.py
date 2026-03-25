@@ -252,6 +252,42 @@ def transcribe_with_segments_longform(
 
     out: list[dict] = []
     prev_tail: str = ""
+    last_kept: dict | None = None
+
+    def _is_overlap_duplicate(prev: dict, cur: dict) -> bool:
+        """청크 경계(overlap)에서 생기는 중복 세그먼트 제거용 휴리스틱."""
+        if not prev or not cur:
+            return False
+        prev_text = (prev.get("text") or "").strip()
+        cur_text = (cur.get("text") or "").strip()
+        if not prev_text or not cur_text:
+            return False
+
+        # 시간적으로 거의 붙어있거나 겹치는데 텍스트가 유사하면 중복으로 판단
+        prev_end = float(prev.get("end", 0.0))
+        cur_start = float(cur.get("start", 0.0))
+        time_close = cur_start <= (prev_end + 0.35)
+
+        if not time_close:
+            return False
+
+        if prev_text == cur_text:
+            return True
+        if cur_text in prev_text and len(cur_text) >= 6:
+            return True
+        if prev_text in cur_text and len(prev_text) >= 6:
+            return True
+
+        # 마지막 12자 내 공통 접두/접미가 길면 중복 가능성 높음
+        tail = prev_text[-12:]
+        head = cur_text[:12]
+        common = 0
+        for a, b in zip(tail[::-1], head):
+            if a == b:
+                common += 1
+            else:
+                break
+        return common >= 6
 
     with wave.open(str(wav_path), "rb") as wf:
         channels = wf.getnchannels()
@@ -320,12 +356,19 @@ def transcribe_with_segments_longform(
                     continue
 
                 chunk_text_parts.append(text)
-                out.append({
+                cand = {
                     "start": float(seg.start) + offset_sec,
                     "end": float(seg.end) + offset_sec,
                     "text": text,
                     "confidence": _seg_confidence(seg),
-                })
+                }
+
+                # 청크 경계에서 중복으로 잡힌 세그먼트 제거
+                if last_kept is not None and _is_overlap_duplicate(last_kept, cand):
+                    continue
+
+                out.append(cand)
+                last_kept = cand
 
             # 다음 청크 프롬프트용으로 최근 텍스트 꼬리만 유지 (너무 길어지는 것 방지)
             joined = " ".join(chunk_text_parts).strip()
