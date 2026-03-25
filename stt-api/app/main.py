@@ -410,6 +410,74 @@ async def transcribe_url(req: TranscribeUrlRequest):
     return TranscribeResponse(segments=out, full_text=full_text)
 
 
+@app.post("/transcribe/temp", response_model=TranscribeResponse)
+async def transcribe_temp(req: TranscribeUrlRequest):
+    """임시 전사 엔드포인트: URL 입력 → 순수 STT 전사만 반환.
+
+    - 화자분리(diarization) 없음
+    - 후처리(postprocessing) 없음
+    """
+    async with _transcribe_slot_guard():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            src = tmp / "audio"
+
+            try:
+                from app.services.audio import download_audio, ensure_wav_16k_mono
+                from app.services.transcription import transcribe_with_segments
+            except Exception as e:
+                raise HTTPException(
+                    503,
+                    f"STT 엔진이 로드되지 않았습니다. 서버 로그를 확인하세요: {e}",
+                ) from e
+
+            try:
+                await download_audio(req.url, src)
+            except Exception as e:
+                logger.warning("오디오 다운로드 실패: %s (URL: %s)", e, req.url)
+                raise HTTPException(
+                    400,
+                    f"오디오 파일을 다운로드할 수 없습니다: {e}",
+                ) from e
+
+            try:
+                wav_path = ensure_wav_16k_mono(src)
+            except Exception as e:
+                logger.warning("오디오 변환 실패: %s", e)
+                raise HTTPException(
+                    400,
+                    f"오디오 파일을 변환할 수 없습니다. WAV 16kHz mono 형식이 필요합니다: {e}",
+                ) from e
+
+            try:
+                loop = asyncio.get_running_loop()
+                raw_segs = await loop.run_in_executor(
+                    None,
+                    lambda: transcribe_with_segments(wav_path, language=req.language),
+                )
+            except ValueError as e:
+                logger.warning("전사 파라미터 오류: %s", e)
+                raise HTTPException(400, f"전사 요청 파라미터 오류: {e}") from e
+            except Exception as e:
+                logger.error("전사 실패(temp): %s\n%s", e, traceback.format_exc())
+                raise HTTPException(
+                    500,
+                    f"음성 전사 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}",
+                ) from e
+
+    out = [
+        SegmentResponse(
+            start=s["start"],
+            end=s["end"],
+            text=s["text"],
+            speaker=None,
+        )
+        for s in raw_segs
+    ]
+    full_text = " ".join(s["text"] for s in raw_segs).strip()
+    return TranscribeResponse(segments=out, full_text=full_text)
+
+
 @app.post("/transcribe/file", response_model=TranscribeResponse)
 async def transcribe_file(
     file: UploadFile = File(...),
