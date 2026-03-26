@@ -88,6 +88,8 @@ COMMON_BOOSTINGS = [
     {"words": "CT"}, {"words": "MRI"}, {"words": "초음파"}, {"words": "엑스레이"},
     {"words": "내시경"}, {"words": "혈액검사"}, {"words": "혈압"}, {"words": "혈당"},
     {"words": "수혈"}, {"words": "감염"}, {"words": "종양"}, {"words": "재활"},
+    # 당뇨/투약 관련(진료과 힌트가 없어도 자주 등장)
+    {"words": "인슐린"}, {"words": "인슐린 펜"}, {"words": "인슐린 주사"}, {"words": "단위"},
 ]
 
 # ─── 진료과별 Boosting + 용어 사전 ─────────────────────────
