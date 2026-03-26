@@ -439,7 +439,7 @@ async def transcribe_with_clova_note(
         legacy.CLOVA_URL = api_url.rstrip("/")
         legacy.CLOVA_KEY = api_key
 
-        # CLI와 동일하려면 동일 API 키 필요: .env OPENAI_API_KEY가 있으면 그걸 씀(없으면 medical_stt.py 상수).
+        # .env OPENAI_API_KEY가 있으면 medical_stt 런타임 client를 덮어씀(없으면 GPT 단계 스킵).
         api_openai = (settings.openai_api_key or "").strip()
         try:
             from openai import OpenAI
