@@ -2,11 +2,13 @@
 
 import asyncio
 import logging
+import re
 import tempfile
 import time
 import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -175,6 +177,9 @@ except Exception as exc:
 try:
     from app.services.audio import download_audio, ensure_wav_16k_mono
     from app.services.pipeline import transcribe_with_diarization
+    from app.services.postprocessing import postprocess_segments
+    from app.services.transcription import transcribe_with_segments_longform
+    from app.services.clova_note import transcribe_with_clova_note
     _component_status["stt_engine"]["loaded"] = True
     logger.info("STT 엔진 모듈 활성화")
 except Exception as exc:
@@ -221,6 +226,11 @@ class TranscribeUrlRequest(BaseModel):
     language: str = Field(default="ko", description="언어 코드 (ko, en 등)")
 
 
+class TranscribeClovaNoteRequest(BaseModel):
+    """Clova Note + Whisper 하이브리드 전사 요청."""
+    url: str = Field(..., description="오디오 파일 URL")
+
+
 class SegmentResponse(BaseModel):
     """전사 세그먼트."""
     start: float
@@ -233,6 +243,13 @@ class TranscribeResponse(BaseModel):
     """전사 결과."""
     segments: list[SegmentResponse]
     full_text: str
+
+
+class MedicalTurnResponse(BaseModel):
+    """medical_stt.py 스타일 턴 응답."""
+    role: str
+    index: int
+    content: str
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -402,7 +419,7 @@ async def transcribe_url(req: TranscribeUrlRequest):
             start=s["start"],
             end=s["end"],
             text=s["text"],
-            speaker=s.get("speaker"),
+            speaker=s.get("role") or s.get("speaker"),
         )
         for s in segments
     ]
@@ -476,6 +493,71 @@ async def transcribe_temp(req: TranscribeUrlRequest):
     ]
     full_text = " ".join(s["text"] for s in raw_segs).strip()
     return TranscribeResponse(segments=out, full_text=full_text)
+
+
+def _filename_from_audio_url(url: str) -> str:
+    """URL과 동일한 파일명으로 저장해 CLI가 `medical_stt.py 동일.wav` 돌린 것과 맞춤."""
+    name = unquote(Path(urlparse(url).path).name).replace("\x00", "").strip()
+    if not name or name in (".", ".."):
+        return "download.bin"
+    return name[-200:]
+
+
+def _type_num_hint_from_url(url: str) -> int | None:
+    m = re.search(r"type(\d+)", url, re.I)
+    return int(m.group(1)) if m else None
+
+
+@app.post("/transcribe/clova-note", response_model=list[MedicalTurnResponse])
+async def transcribe_clova_note(req: TranscribeClovaNoteRequest):
+    """Clova Note API + Whisper + 후처리 기반 전사.
+
+    반환 포맷은 medical_stt.py 스타일:
+    - [{role, index, content}, ...]
+    """
+    _check_stt_engine()
+    async with _transcribe_slot_guard():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            # 원본 바이트·파일명 유지 (CLI가 같은 URL 파일을 저장해 돌린 것과 동일 조건).
+            # ffmpeg 재인코딩(ensure_wav_16k_mono)을 하면 샘플이 달라져 Clova/GPT 결과가 어긋남.
+            src = tmp / _filename_from_audio_url(req.url)
+            segments: list[dict] = []
+
+            try:
+                await download_audio(req.url, src)
+            except Exception as e:
+                logger.warning("오디오 다운로드 실패: %s (URL: %s)", e, req.url)
+                raise HTTPException(
+                    400,
+                    f"오디오 파일을 다운로드할 수 없습니다: {e}",
+                ) from e
+
+            try:
+                segments = await transcribe_with_clova_note(
+                    src,
+                    language="ko",
+                    type_num=_type_num_hint_from_url(req.url),
+                )
+            except Exception as e:
+                logger.error("Clova Note 파이프라인 실패: %s\n%s", e, traceback.format_exc())
+                raise HTTPException(
+                    500,
+                    f"Clova Note 파이프라인 실패: {e}",
+                ) from e
+
+            if not segments:
+                raise HTTPException(500, "전사 결과가 비어 있습니다.")
+
+    turns = [
+        MedicalTurnResponse(
+            role=str(s.get("role") or s.get("speaker") or "환자"),
+            index=i,
+            content=s.get("text", ""),
+        )
+        for i, s in enumerate(segments, start=1)
+    ]
+    return turns
 
 
 @app.post("/transcribe/file", response_model=TranscribeResponse)

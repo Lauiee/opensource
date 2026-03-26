@@ -2,6 +2,8 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-*/
+.venv-med/
 venv/
 .env
 
@@ -18,3 +20,7 @@ build/
 
 # Local model weights
 models/
+
+# medical_stt 바이트 캐시 (동일 음성 재실행 시 결과 고정)
+.cache/
+data/medical_stt_cache/

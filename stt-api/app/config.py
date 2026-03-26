@@ -3,11 +3,17 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
+    # Clova Note API (외부 STT 연동)
+    clova_note_api_url: str = Field(default="", validation_alias="CLOVA_NOTE_API_URL")
+    clova_note_api_token: str = Field(default="", validation_alias="CLOVA_NOTE_API_TOKEN")
+    clova_speech_invoke_url: str = Field(default="", validation_alias="CLOVA_SPEECH_INVOKE_URL")
+    clova_speech_api_key: str = Field(default="", validation_alias="CLOVA_SPEECH_API_KEY")
+
     # Faster-Whisper 로컬 STT
     faster_whisper_model: str = Field(
         default="large-v3", validation_alias="FASTER_WHISPER_MODEL",
@@ -86,6 +92,22 @@ class Settings(BaseSettings):
             if v not in valid_levels:
                 return "INFO"
         return v
+
+    @model_validator(mode="after")
+    def strip_secret_strings(self):
+        """env/.env 값 앞뒤 공백 제거 (예: KEY= https://... 실수 방지)."""
+        for name in (
+            "clova_note_api_url",
+            "clova_note_api_token",
+            "clova_speech_invoke_url",
+            "clova_speech_api_key",
+            "openai_api_key",
+            "huggingface_token",
+        ):
+            v = getattr(self, name, None)
+            if isinstance(v, str):
+                setattr(self, name, v.strip())
+        return self
 
     model_config = {
         "env_file": Path(__file__).resolve().parent.parent / ".env",

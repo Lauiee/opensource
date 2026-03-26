@@ -28,6 +28,8 @@ COPY pyproject.toml ./
 COPY app/ ./app/
 COPY data/ ./data/
 COPY static/ ./static/
+# medical_stt.py: /transcribe/clova-note 가 CLI와 동일 파이프라인을 타도록 포함
+COPY medical_stt.py /app/medical_stt.py
 RUN python3 -m pip install --no-cache-dir -U pip setuptools wheel \
     && python3 -m pip install --no-cache-dir -e .
 

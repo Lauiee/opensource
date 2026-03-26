@@ -8,6 +8,8 @@ services:
     env_file: .env
     volumes:
       - ./models:/app/models
+      # medical_stt 바이트 캐시: 로컬에서 먼저 CLI 돌린 뒤 API가 동일 JSON을 재사용 가능
+      - ./data/medical_stt_cache:/app/.cache/medical_stt
     restart: unless-stopped
     gpus: all
     deploy:
