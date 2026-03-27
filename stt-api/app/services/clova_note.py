@@ -37,6 +37,7 @@ COMMON_BOOSTINGS: list[dict[str, str]] = [
     {"words": "CT"}, {"words": "MRI"}, {"words": "초음파"}, {"words": "엑스레이"},
     # 당뇨/투약 관련(진료과 힌트가 없어도 자주 등장)
     {"words": "인슐린"}, {"words": "인슐린 펜"}, {"words": "인슐린 주사"}, {"words": "단위"},
+    {"words": "퇴행성"}, {"words": "퇴행성 변화"}
 ]
 
 SPECIALTY_BOOSTINGS: dict[str, list[dict[str, str]]] = {
