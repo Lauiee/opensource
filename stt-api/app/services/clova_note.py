@@ -310,6 +310,7 @@ def _gpt_postprocess_chunk(segments: list[dict], specialty: str) -> list[dict]:
     system_prompt = (
         "당신은 한국어 의료 음성 전사(STT) 교정 전문가입니다. "
         f"전문 분야: {specialty}. "
+        "의료 용어는 앞뒤 턴의 주제·검사·처방 맥락이 맞을 때만 교정하세요. "
         "JSON만 출력하세요."
     )
     user_prompt = f"""아래는 의료 상담 STT 결과입니다.
@@ -317,12 +318,14 @@ role/index는 변경하지 말고 content만 교정하세요.
 
 규칙:
 1) 세그먼트 개수와 index를 반드시 유지
-2) 의료 용어 오인식만 교정, 의미 추가/요약 금지
-3) 환각 문구 제거(시청해주셔서 감사합니다 등)
-4) 표현은 자연스럽게 정리 가능
-5) 출력은 JSON 배열만
+2) **index 순서대로 전체를 읽은 뒤** 교정. 의료 용어는 직전·직후 턴과 주제가 맞을 때만 바꾸고, 근거가 약하면 원문 유지
+3) 같은 대화 안에서 이미 나온 약물·검사 지표 등은 표기 통일. 의사가 위에서 같은 용어를 여러 번 말한 뒤 이어지는 **짧은 환자 멘트**는 그 용어를 짚는 경우가 많으니, 낯선 STT 조각은 **앞선 턴에 실제로 등장한 표기**와 먼저 맞춰 볼 것(새 내용 추가 금지)
+4) 의료 용어 오인식만 교정, 의미 추가/요약 금지
+5) 환각 문구 제거(시청해주셔서 감사합니다 등)
+6) 표현은 자연스럽게 정리 가능
+7) 출력은 JSON 배열만
 
-의료 용어 힌트: {terms}
+의료 용어 힌트(참고, 문맥과 충돌 시 무시): {terms}
 
 출력 형식:
 [
@@ -453,7 +456,7 @@ async def transcribe_with_clova_note(
             logger.warning("OpenAI 클라이언트 재설정 실패, medical_stt 기본 client 사용: %s", exc)
 
         def _run_legacy() -> list[dict]:
-            # CLI와 완전 동일: medical_stt.process_wav 단일 진입점 (+ 바이트 해시 캐시 공유)
+            # CLI와 동일: medical_stt.process_wav 단일 진입점
             fd, out_json = tempfile.mkstemp(suffix=".json", prefix="med_")
             os.close(fd)
             try:

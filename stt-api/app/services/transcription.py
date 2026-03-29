@@ -152,6 +152,11 @@ def _get_faster_whisper_model():
     return model
 
 
+def prewarm_faster_whisper() -> None:
+    """기동 시 한 번 호출하면 모델이 로드된다. 일반 전사·clova-note(medical_stt) 보완이 같은 인스턴스를 쓴다."""
+    _get_faster_whisper_model()
+
+
 def transcribe_with_segments(
     wav_path: str | Path,
     language: str = "ko",

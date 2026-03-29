@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import tempfile
 import time
@@ -199,6 +200,29 @@ try:
 except Exception as exc:
     _component_status["static_files"]["error"] = str(exc)
     logger.warning("정적 파일 서빙 설정 실패: %s", exc)
+
+
+@app.on_event("startup")
+async def _prewarm_faster_whisper_on_startup() -> None:
+    """Faster-Whisper를 백그라운드에서 선로드해 첫 전사·clova-note 보완 지연을 줄임."""
+    raw = os.environ.get("STT_PREWARM_WHISPER", "1").strip().lower()
+    if raw in ("0", "false", "no", "off"):
+        logger.info("Faster-Whisper prewarm 생략 (STT_PREWARM_WHISPER=%s)", raw)
+        return
+
+    def _run() -> None:
+        try:
+            from app.services.transcription import prewarm_faster_whisper
+
+            prewarm_faster_whisper()
+            logger.info("Faster-Whisper prewarm 완료")
+        except Exception as exc:
+            logger.warning("Faster-Whisper prewarm 실패 (첫 전사 시 로드됨): %s", exc)
+
+    import threading
+
+    threading.Thread(target=_run, daemon=True, name="faster-whisper-prewarm").start()
+    logger.info("Faster-Whisper prewarm 스레드 시작")
 
 
 @app.get("/viewer")

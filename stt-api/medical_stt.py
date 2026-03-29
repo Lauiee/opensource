@@ -4,6 +4,7 @@
 - Stage 2: 세그먼트 전처리 (환각필터, 병합, 짧은발화 보존)
 - Stage 3: 화자 역할 매핑 (규칙기반 점수 + GPT 검증)
 - Stage 4: Whisper 보완 전사 (저신뢰 구간만)
+- Stage 4b: 문맥 기반 STT 오인식 치환 (앵커 + 소수 정규식 패턴)
 - Stage 5: GPT-4o 후처리 (강화된 프롬프트 + 진료과별 사전)
 - Stage 6: 후처리 검증
 - Stage 7: 2-Pass 청크 처리 (긴 대화용)
@@ -17,7 +18,6 @@
 
 import argparse
 import glob
-import hashlib
 import json
 import math
 import os
@@ -45,28 +45,6 @@ OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 client = OpenAI(api_key=OPENAI_KEY) if OPENAI_KEY else None
-
-
-def _medical_stt_cache_file_for_wav(wav_path: str) -> str | None:
-    """동일 WAV 바이트 → 동일 결과 JSON. API·CLI가 같은 캐시를 쓰면 출력이 일치한다.
-
-    - MEDICAL_STT_CACHE_DIR: 캐시 디렉터리 (미설정 시 {BASE_DIR}/.cache/medical_stt)
-    - MEDICAL_STT_DISABLE_CACHE=1: 캐시 비활성화
-    """
-    if os.environ.get("MEDICAL_STT_DISABLE_CACHE", "").strip().lower() in ("1", "true", "yes"):
-        return None
-    base = os.environ.get("MEDICAL_STT_CACHE_DIR", "").strip()
-    if not base:
-        base = os.path.join(BASE_DIR, ".cache", "medical_stt")
-    try:
-        os.makedirs(base, exist_ok=True)
-    except OSError:
-        return None
-    digest = hashlib.sha256()
-    with open(wav_path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            digest.update(chunk)
-    return os.path.join(base, digest.hexdigest() + ".json")
 
 
 # ─── Type → 진료과 매핑 ────────────────────────────────────
@@ -542,6 +520,8 @@ ENGLISH_MEDICAL_HINTS = re.compile(
 
 # 짧은 구간 Whisper 재전사는 환각(무관 단어 나열)이 잦아 최소 길이·품질 검사 후에만 GPT에 넘김
 _WHISPER_MIN_SLICE_MS = int(os.environ.get("MEDICAL_STT_WHISPER_MIN_MS", "800"))
+# Clova 신뢰도가 이 값 미만이면 슬라이스 재전사(기본 0.75). 낮출수록 더 많은 구간을 2차 STT로 검증—지연·비용 증가
+_WHISPER_CONF_SUPPLEMENT = float(os.environ.get("MEDICAL_STT_WHISPER_CONF_THRESHOLD", "0.75"))
 
 
 def _korean_char_jaccard(a: str, b: str) -> float:
@@ -606,20 +586,48 @@ def _whisper_slice_looks_hallucinated(
     return False
 
 
-def whisper_supplement(segments, wav_path, type_num=None):
-    """CLOVA 저신뢰 구간만 Whisper로 재전사하여 보완."""
+_medical_stt_fw_fallback_model = None
+
+
+def _get_whisper_for_supplement():
+    """STT API: app.transcription 싱글톤(.env FASTER_WHISPER_MODEL) 재사용.
+    CLI 단독: 모듈 전역에 large-v3 한 번만 로드."""
+    global _medical_stt_fw_fallback_model
+    try:
+        from app.services.transcription import _get_faster_whisper_model
+
+        return _get_faster_whisper_model()
+    except Exception:
+        pass
+    if _medical_stt_fw_fallback_model is not None:
+        return _medical_stt_fw_fallback_model
     try:
         from faster_whisper import WhisperModel
     except ImportError:
-        print("    [Whisper] faster-whisper not installed, skipping supplement")
-        return segments
+        return None
+    try:
+        _medical_stt_fw_fallback_model = WhisperModel(
+            "large-v3", device="cuda", compute_type="float16"
+        )
+    except Exception:
+        try:
+            _medical_stt_fw_fallback_model = WhisperModel(
+                "large-v3", device="cpu", compute_type="int8"
+            )
+        except Exception as e:
+            print(f"    [Whisper] Model load failed: {e}")
+            return None
+    return _medical_stt_fw_fallback_model
 
+
+def whisper_supplement(segments, wav_path, type_num=None):
+    """CLOVA 저신뢰 구간만 Whisper로 재전사하여 보완."""
     # 저신뢰/영어용어 의심 구간 식별
     targets = []
     for i, seg in enumerate(segments):
         need_whisper = False
         # 신뢰도 낮은 구간
-        if seg.get("confidence", 1.0) < 0.75:
+        if seg.get("confidence", 1.0) < _WHISPER_CONF_SUPPLEMENT:
             need_whisper = True
         # 영어 의료 용어 의심
         if ENGLISH_MEDICAL_HINTS.search(seg["text"]):
@@ -633,15 +641,10 @@ def whisper_supplement(segments, wav_path, type_num=None):
 
     print(f"    [Whisper] {len(targets)} segments to re-transcribe")
 
-    # Whisper 모델 로드
-    try:
-        model = WhisperModel("large-v3", device="cuda", compute_type="float16")
-    except Exception:
-        try:
-            model = WhisperModel("large-v3", device="cpu", compute_type="int8")
-        except Exception as e:
-            print(f"    [Whisper] Model load failed: {e}")
-            return segments
+    model = _get_whisper_for_supplement()
+    if model is None:
+        print("    [Whisper] faster-whisper not available, skipping supplement")
+        return segments
 
     # 진료과별 initial prompt
     specialty = TYPE_SPEC.get(type_num, "내과") if type_num else "내과"
@@ -717,15 +720,165 @@ def whisper_supplement(segments, wav_path, type_num=None):
             except Exception:
                 pass
 
-    # Whisper 모델 해제
-    del model
-
     return segments
 
 
 # ═══════════════════════════════════════════════════════════
 # Stage 5: GPT-4o 후처리 (강화된 프롬프트)
 # ═══════════════════════════════════════════════════════════
+def _boosting_glossary_for_specialty(specialty: str) -> list[str]:
+    """공통+진료과 boosting 단어 목록(긴 구문 우선). GPT가 부스팅과 동일 후보로 대조하게 함."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+
+    def add(w: str) -> None:
+        w = (w or "").strip()
+        if len(w) < 2 or w in seen:
+            return
+        seen.add(w)
+        ordered.append(w)
+
+    for item in COMMON_BOOSTINGS:
+        add(item.get("words", ""))
+    for item in SPECIALTY_DATA.get(specialty, {}).get("boostings", []):
+        add(item.get("words", ""))
+    ordered.sort(key=len, reverse=True)
+    return ordered
+
+
+def _mentioned_glossary_terms(segments: list, glossary: list[str]) -> list[str]:
+    """전사 텍스트에 실제로 등장한 glossary 항목(발화 순서)."""
+    chunks: list[str] = []
+    for s in segments or []:
+        chunks.append(s.get("text") or "")
+        if s.get("whisper_text"):
+            chunks.append(s.get("whisper_text") or "")
+    big = "\n".join(chunks)
+    hits: list[tuple[int, str]] = []
+    hit_set: set[str] = set()
+    for t in glossary:
+        if len(t) < 2:
+            continue
+        pos = big.find(t)
+        if pos >= 0 and t not in hit_set:
+            hit_set.add(t)
+            hits.append((pos, t))
+    hits.sort(key=lambda x: x[0])
+    return [t for _, t in hits][:50]
+
+
+def _context_window_text(segments: list, center_index: int, radius: int = 3) -> str:
+    """앞뒤 세그먼트(+Whisper 보조문)를 한 덩어리로 묶어 문맥 문자열 생성."""
+    if not segments:
+        return ""
+    n = len(segments)
+    chunks: list[str] = []
+    for j in range(max(0, center_index - radius), min(n, center_index + radius + 1)):
+        seg = segments[j]
+        for key in ("text", "whisper_text"):
+            t = (seg.get(key) or "").strip()
+            if t:
+                chunks.append(t)
+    return " ".join(chunks)
+
+
+def _glossary_terms_substrings_in_text(text: str, glossary: list[str]) -> list[str]:
+    """text 안에 부분 문자열로 실제 등장한 glossary 항목(긴 구문 우선, 중복 제외)."""
+    if not text:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for term in glossary:
+        if len(term) < 2 or term in seen:
+            continue
+        if term in text:
+            seen.add(term)
+            out.append(term)
+    return out
+
+
+# 알려진 STT 깨짐 → 앵커(주변에 반드시 나와야 하는 키워드)가 있을 때만 치환.
+_CONTEXT_SUB_RULES: tuple[dict, ...] = (
+    {
+        "pattern": re.compile(r"당월\s*섭스"),
+        "anchors": (
+            "혈당", "당뇨", "공복", "식후", "췌장", "인슐린", "주사", "펜", "단위",
+            "당화", "혈색소", "혈색",
+        ),
+        "candidates": ("당화혈색소",),
+        "pick": "single",
+    },
+    {
+        "pattern": re.compile(r"이슈주의"),
+        "anchors": (
+            "인슐린", "주사", "펜", "단위", "혈당", "공복", "식후", "췌장",
+        ),
+        "candidates": ("인슐린 주사", "인슐린 펜", "인슐린"),
+        "pick": "insulin",
+    },
+)
+
+
+def _pick_context_substitution(rule: dict, window: str, mention_set: set[str]) -> str:
+    """사전에 이미 등장한 후보를 최우선, 없으면 pick 규칙으로 결정."""
+    candidates: tuple[str, ...] = rule["candidates"]
+    overlap = [c for c in candidates if c in mention_set]
+    if overlap:
+        return max(overlap, key=len)
+    pick = rule.get("pick") or "single"
+    if pick == "single" or len(candidates) == 1:
+        return candidates[0]
+    if pick == "insulin":
+        for c in candidates:
+            if c in window:
+                return c
+        if "인슐린" in window:
+            if "주사" in window or "펜" in window or "단위" in window:
+                return "인슐린 주사"
+            return "인슐린"
+        return candidates[0]
+    for c in candidates:
+        if c in window:
+            return c
+    for c in sorted(candidates, key=len, reverse=True):
+        parts = c.split()
+        if parts and parts[0] in window:
+            return c
+    return candidates[0]
+
+
+def apply_context_glossary_substitutions(segments, specialty: str = "내과", radius: int = 3):
+    """주변 문맥에 진료 키워드가 있을 때만 소수 패턴을 부스팅 사전 표기로 교정."""
+    if os.environ.get("MEDICAL_STT_SKIP_CONTEXT_SUB", "").strip().lower() in (
+        "1", "true", "yes",
+    ):
+        return segments
+    if not segments:
+        return segments
+    glossary = _boosting_glossary_for_specialty(specialty)
+    for i, seg in enumerate(segments):
+        text = seg.get("text") or ""
+        if not text.strip():
+            continue
+        window = _context_window_text(segments, i, radius=radius)
+        mentioned_here = _glossary_terms_substrings_in_text(window, glossary)
+        mention_set = set(mentioned_here)
+        if not any(a in window for a in (_x for rule in _CONTEXT_SUB_RULES for _x in rule["anchors"])):
+            continue
+        new_text = text
+        for rule in _CONTEXT_SUB_RULES:
+            if not any(a in window for a in rule["anchors"]):
+                continue
+            pat = rule["pattern"]
+            if not pat.search(new_text):
+                continue
+            repl = _pick_context_substitution(rule, window, mention_set)
+            new_text = pat.sub(repl, new_text, count=1)
+        if new_text != text:
+            seg["text"] = new_text
+    return segments
+
+
 def _openai_safe_text(obj) -> str:
     """OpenAI HTTP JSON 본문 직렬화에 안전한 문자열로 정리.
 
@@ -768,9 +921,15 @@ def gpt_postprocess(segments, specialty="내과", max_tokens=8192):
     spec_data = SPECIALTY_DATA.get(specialty, {})
     terms = _openai_safe_text(spec_data.get("terms_for_gpt", ""))
 
+    gloss = _boosting_glossary_for_specialty(specialty)
+    mentioned = _mentioned_glossary_terms(segments, gloss)
+    boost_line = ", ".join(_openai_safe_text(x) for x in gloss[:70])
+    mentioned_line = ", ".join(_openai_safe_text(x) for x in mentioned) if mentioned else "(해당 없음 — 아래 부스팅 후보만 참고)"
+
     system_prompt = _openai_safe_text(f"""당신은 한국어 의료 음성 전사(STT) 교정 전문가입니다.
 전문 분야: {specialty}
-역할: CLOVA STT + Whisper 보완 결과를 교정하여 정확한 전사문을 만듭니다.""")
+역할: CLOVA STT + Whisper 보완 결과를 교정하여 정확한 전사문을 만듭니다.
+원칙: 의료 용어는 **단일 세그먼트·사전 형태 일치만**으로 결정하지 말고, **직전·직후 턴의 주제·검사·처방·증상 흐름**이 뒷받침할 때만 바꿉니다.""")
 
     user_prompt = _openai_safe_text(f"""아래는 {specialty} 진료 상담 음성의 STT 결과입니다.
 화자 역할(원장님/환자)은 이미 판별되어 있습니다.
@@ -790,13 +949,24 @@ def gpt_postprocess(segments, specialty="내과", max_tokens=8192):
 - 각 턴은 하나의 완결된 의미 단위여야 합니다
 - 너무 긴 턴(200자 이상)은 자연스러운 끊김 지점에서 분리 가능
 
-### 3. 의료 용어 교정
+### 3. 의료 용어 교정 (**문맥 우선**)
 {terms}
-- [Whisper: ...]는 참고용입니다. 앞 문장의 CLOVA 원문과 의료 상담 맥락 모두에 어울릴 때만 반영하세요.
+
+### 부스팅 단어와 동일한 교정 후보 (Clova API에 넣은 목록과 일치)
+- **본문에 이미 나온 항목:** {mentioned_line}
+- **전체 후보(발음 깨짐 대조용, 본문에 아직 없어도 참고):** {boost_line}
+- STT가 낸 낯선 한글 덩어리는 **위 후보·본문 등장 항목**과 **발음상 대응**이 가능한지, 그리고 **앞뒤 진료 맥띿**과 맞는지 함께 보고 표준 표기로 맞추세요. **추측만으로 새 질환명을 넣지 마세요.**
+
+- **seg 순서대로 전체를 읽은 뒤** 교정하세요. 각 문장이 앞뒤 턴과 이어지는 **한 줄기의 진료 대화**인지 먼저 파악합니다.
+- 사전·위 힌트로 바꿀 때 확인할 것: (1) **같은 진료 주제**(검사/수치/약/부위/증상)인가, (2) **이미 나온 내용·수치**와 **모순**이 없는가.
+- 앞선 턴에서 확정된 표기가 있으면(예: 동일 약물·동일 검사 지표), **같은 개념은 같은 표기로 통일**하세요.
+- **담화 응집(매우 중요):** 바로 위 여러 턴에서 의사가 **같은 약물·같은 검사 지표·같은 처방**을 반복해 설명했다면, 이어지는 **매우 짧은 환자 발화**는 그 주제를 짚으며 이어진 응답일 가능성이 큽니다. 이때 낯선 일상어 조합·끊긴 발음처럼 보이는 구간은 **직전 턴들에 실제로 나온 전문 용어**와 발음적으로 맞는지 **먼저** 대조하세요. 대화 흐름상 그 용어를 가리키는 것이 자연스러우면, **사전·힌트 목록에 없더라도** 이미 본문에 등장한 표기로 교정해도 됩니다(새 정보를 지어내지 않는 전제).
+- 발음만 비슷한 일반어/동음이의가 STT로 깨졌다고 **추측**할 때는, **문맥이 그 의학 개념을 분명히 지지할 때만** 사전 후보로 교정하세요. 근거가 약하면 **원문 유지**가 안전합니다.
+- [Whisper: ...]는 참고용입니다. **해당 seg의 CLOVA 문장**과 **앞뒤 seg의 주제**가 모두 맞을 때만 반영하세요.
 - Whisper가 쉼표로만 이어진 짧은 단어 나열·상식 밖 조합(예: 일상·예술 단어가 잇달아 나옴)처럼 보이면 **환각**으로 보고 CLOVA 원문을 유지하세요.
 - [English: ...] 태그의 영어 의료 용어는 한국어 음역과 함께 표기
   예: "버티컬 오페시티(vertical opacity)"
-- STT가 잘못 인식한 의료 용어를 위 사전을 참고하여 교정
+- 위 사전은 **참고**일 뿐입니다. 대화 문맥과 맞지 않는 단어를 억지로 끼워 넣지 마세요.
 
 ### 4. 절대 하지 말 것
 - 원본에 없는 발화를 추가하지 마세요
@@ -937,17 +1107,6 @@ def process_wav(wav_path, output_path=None, type_num=None):
         print(f"  ERROR: file not found: {wav_path}")
         return None
 
-    cache_path = _medical_stt_cache_file_for_wav(wav_path)
-    if cache_path and os.path.isfile(cache_path):
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                cached = json.load(f)
-            if isinstance(cached, list) and len(cached) > 0:
-                print(f"  [cache] HIT -> {len(cached)} turns ({cache_path})")
-                return cached
-        except Exception as exc:
-            print(f"  [cache] read failed ({exc}), running pipeline...")
-
     wav_name = os.path.splitext(os.path.basename(wav_path))[0]
     if output_path is None:
         output_path = os.path.join(os.path.dirname(wav_path), "..", f"stt_result_{wav_name}.json")
@@ -991,6 +1150,10 @@ def process_wav(wav_path, output_path=None, type_num=None):
     print("  [4/6] Whisper 보완 전사...")
     segments = whisper_supplement(segments, wav_path, type_num)
 
+    # Stage 4b: 문맥 기반 오인식 치환(앵커 + 부스팅 사전)
+    print("  [4b/6] 문맥 기반 용어 치환...")
+    segments = apply_context_glossary_substitutions(segments, specialty)
+
     # Stage 5: GPT 후처리
     print("  [5/6] GPT-4o 후처리...")
     result = gpt_postprocess_chunked(segments, specialty)
@@ -1013,14 +1176,6 @@ def process_wav(wav_path, output_path=None, type_num=None):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"         {len(result)} utterances -> {output_path}")
-
-    if cache_path and result:
-        try:
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(result, f, ensure_ascii=False, indent=2)
-            print(f"  [cache] saved -> {cache_path}")
-        except Exception as exc:
-            print(f"  [cache] save failed: {exc}")
 
     return result
 
@@ -1181,37 +1336,4 @@ def main():
                 s = summary[num]
                 if "error" in s:
                     print(f"type{num:<4} ERROR: {s['error']}")
-                    continue
-                rate = s["match"] / s["total"] * 100 if s["total"] > 0 else 0
-                cer = s.get("cer", 0)
-                print(f"type{num:<4} {s['match']:<8} {s['total']:<8} {rate:<7.1f}% {cer:<7.1%}")
-                total_m += s["match"]
-                total_t += s["total"]
-                cer_sum += cer
-                cer_count += 1
-            print("-" * 48)
-            if total_t > 0:
-                avg_cer = cer_sum / max(cer_count, 1)
-                print(f"TOTAL    {total_m:<8} {total_t:<8} {total_m/total_t*100:<7.1f}% {avg_cer:<7.1%}")
-
-    elif args.files:
-        for wav_path in args.files:
-            if not os.path.isabs(wav_path):
-                wav_path = os.path.join(BASE_DIR, wav_path)
-            wav_path = os.path.normpath(wav_path)
-
-            print(f"\n{'='*60}")
-            print(f"Processing: {wav_path}")
-            print("=" * 60)
-            try:
-                process_wav(wav_path)
-            except Exception as e:
-                print(f"  ERROR: {e}")
-                import traceback
-                traceback.print_exc()
-    else:
-        parser.print_help()
-
-
-if __name__ == "__main__":
-    main()
+                   
