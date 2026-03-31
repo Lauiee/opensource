@@ -930,6 +930,91 @@ def reject_pending_review(review_id: str):
 # 파일 업로드
 # ──────────────────────────────────────────────────────────────────────
 
+
+async def _run_viewer_stt_pipeline(
+    wav_path: Path,
+    next_num: int,
+    type_dir: Path,
+    dest: Path,
+) -> dict:
+    """WAV 저장 후 전사·교정·JSON 저장 — main `/transcribe`와 동일 전사 슬롯 사용."""
+    import asyncio
+
+    from app.executors import get_transcribe_executor
+    from app.transcribe_slots import transcribe_slot_guard
+
+    segments = None
+    async with transcribe_slot_guard():
+        try:
+            from app.services.pipeline import transcribe_with_diarization
+
+            segments = await transcribe_with_diarization(wav_path, language="ko")
+        except ImportError:
+            logger.info("pyannote 미설치 — Whisper 전사만 수행")
+        except Exception as pipe_err:
+            logger.warning("파이프라인 실패, Whisper만 시도: %s", pipe_err)
+
+        if segments is None:
+            from app.services.transcription import transcribe_with_segments
+
+            loop = asyncio.get_running_loop()
+            raw_segs = await loop.run_in_executor(
+                get_transcribe_executor(),
+                lambda: transcribe_with_segments(wav_path, language="ko"),
+            )
+            segments = [{"speaker": None, **s} for s in raw_segs]
+
+    result_segments = []
+    for i, seg in enumerate(segments):
+        speaker = seg.get("speaker")
+        if speaker == "SPEAKER_00":
+            role = "의사"
+        elif speaker == "SPEAKER_01":
+            role = "환자"
+        elif speaker is None:
+            role = "?"
+        else:
+            role = speaker
+        result_segments.append({
+            "index": i,
+            "role": role,
+            "content": seg.get("text", ""),
+            "start": seg.get("start", 0),
+            "end": seg.get("end", 0),
+        })
+
+    engine = _get_engine()
+    corrections_applied = 0
+    if engine:
+        for seg in result_segments:
+            try:
+                result = engine.correct_full(seg["content"])
+                if result.text != result.original_text:
+                    seg["content"] = result.text
+                    corrections_applied += 1
+            except Exception:
+                pass
+
+    result_path = type_dir / f"donkey_type{next_num}.txt"
+    result_path.write_text(
+        json.dumps(result_segments, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    logger.info(
+        "전사+저장 완료: type%d (%d세그먼트, %d교정)",
+        next_num, len(result_segments), corrections_applied,
+    )
+    return {
+        "ok": True,
+        "type_num": next_num,
+        "segments": len(result_segments),
+        "corrections": corrections_applied,
+        "file": str(dest),
+        "message": f"Type {next_num}: 전사 완료 ({len(result_segments)}세그먼트, {corrections_applied}교정)",
+    }
+
+
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -965,84 +1050,10 @@ async def upload_file(
 
             # STT 전사 시도
             try:
-                import asyncio
                 from app.services.audio import ensure_wav_16k_mono
 
                 wav_path = ensure_wav_16k_mono(dest)
-
-                # 1) 화자분리 포함 파이프라인 시도
-                # 2) 실패 시 Whisper 전사만 (화자분리 없이)
-                segments = None
-                try:
-                    from app.services.pipeline import transcribe_with_diarization
-                    segments = await transcribe_with_diarization(wav_path, language="ko")
-                except ImportError:
-                    logger.info("pyannote 미설치 — Whisper 전사만 수행")
-                except Exception as pipe_err:
-                    logger.warning("파이프라인 실패, Whisper만 시도: %s", pipe_err)
-
-                if segments is None:
-                    # Whisper 전사만 (화자분리 없이)
-                    from app.services.transcription import transcribe_with_segments
-                    loop = asyncio.get_running_loop()
-                    raw_segs = await loop.run_in_executor(
-                        None,
-                        lambda: transcribe_with_segments(wav_path, language="ko"),
-                    )
-                    segments = [{"speaker": None, **s} for s in raw_segs]
-
-                # 뷰어 형식으로 변환
-                result_segments = []
-                for i, seg in enumerate(segments):
-                    speaker = seg.get("speaker")
-                    if speaker == "SPEAKER_00":
-                        role = "의사"
-                    elif speaker == "SPEAKER_01":
-                        role = "환자"
-                    elif speaker is None:
-                        role = "?"
-                    else:
-                        role = speaker
-                    result_segments.append({
-                        "index": i,
-                        "role": role,
-                        "content": seg.get("text", ""),
-                        "start": seg.get("start", 0),
-                        "end": seg.get("end", 0),
-                    })
-
-                # 의료 용어 교정
-                engine = _get_engine()
-                corrections_applied = 0
-                if engine:
-                    for seg in result_segments:
-                        try:
-                            result = engine.correct_full(seg["content"])
-                            if result.text != result.original_text:
-                                seg["content"] = result.text
-                                corrections_applied += 1
-                        except Exception:
-                            pass
-
-                # JSON 저장
-                result_path = type_dir / f"donkey_type{next_num}.txt"
-                result_path.write_text(
-                    json.dumps(result_segments, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
-
-                logger.info(
-                    "전사+저장 완료: type%d (%d세그먼트, %d교정)",
-                    next_num, len(result_segments), corrections_applied,
-                )
-                return {
-                    "ok": True,
-                    "type_num": next_num,
-                    "segments": len(result_segments),
-                    "corrections": corrections_applied,
-                    "file": str(dest),
-                    "message": f"Type {next_num}: 전사 완료 ({len(result_segments)}세그먼트, {corrections_applied}교정)",
-                }
+                return await _run_viewer_stt_pipeline(wav_path, next_num, type_dir, dest)
 
             except ImportError as ie:
                 logger.warning("STT 엔진 미설치: %s — 파일만 저장", ie)
@@ -1145,13 +1156,15 @@ async def transcribe_and_save(
         wav_dest.write_bytes(content)
         logger.info("음성 파일 저장: type%d (%d bytes)", next_num, len(content))
 
-        # 2) STT 전사 + 화자 분리
+        # 2) STT 전사 + 화자 분리 (메인 `/transcribe`와 동일 슬롯·대기 큐)
         try:
             from app.services.pipeline import transcribe_with_diarization
             from app.services.audio import ensure_wav_16k_mono
+            from app.transcribe_slots import transcribe_slot_guard
 
             wav_path = ensure_wav_16k_mono(wav_dest)
-            segments = await transcribe_with_diarization(wav_path, language="ko")
+            async with transcribe_slot_guard():
+                segments = await transcribe_with_diarization(wav_path, language="ko")
         except ImportError:
             raise HTTPException(
                 503,

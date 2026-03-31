@@ -7,7 +7,6 @@ import re
 import tempfile
 import time
 import traceback
-from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -18,6 +17,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
+from app.transcribe_slots import (
+    get_inflight_transcribe,
+    get_max_concurrent_transcribe,
+    transcribe_slot_guard,
+)
 
 # ──────────────────────────────────────────────────────────────────────
 # 로깅 설정
@@ -30,11 +34,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-_max_concurrent_transcribe = max(1, int(_settings.max_concurrent_transcribe))
-_inflight_transcribe = 0
-_inflight_lock = asyncio.Lock()
-_transcribe_semaphore = asyncio.Semaphore(_max_concurrent_transcribe)
 
 # ──────────────────────────────────────────────────────────────────────
 # API 버전 및 메타데이터
@@ -313,8 +312,8 @@ def health():
             "version": API_VERSION,
             "components": components,
             "runtime": {
-                "inflight_transcribe": _inflight_transcribe,
-                "max_concurrent_transcribe": _max_concurrent_transcribe,
+                "inflight_transcribe": get_inflight_transcribe(),
+                "max_concurrent_transcribe": get_max_concurrent_transcribe(),
             },
         }
     except Exception as e:
@@ -377,25 +376,6 @@ def _check_stt_engine():
         )
 
 
-@asynccontextmanager
-async def _transcribe_slot_guard():
-    """동시 전사 실행 수 제한.
-
-    - 최대 동시 실행 수(`MAX_CONCURRENT_TRANSCRIBE`)를 넘는 요청은 큐잉(대기)합니다.
-    - 헬스체크 노출용으로 inflight 카운트만 별도 관리합니다.
-    """
-    global _inflight_transcribe
-    await _transcribe_semaphore.acquire()
-    async with _inflight_lock:
-        _inflight_transcribe += 1
-    try:
-        yield
-    finally:
-        async with _inflight_lock:
-            _inflight_transcribe = max(0, _inflight_transcribe - 1)
-        _transcribe_semaphore.release()
-
-
 @app.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_url(req: TranscribeUrlRequest):
     """오디오 URL을 받아 전사 결과 반환.
@@ -403,7 +383,7 @@ async def transcribe_url(req: TranscribeUrlRequest):
     지원 형식: wav, mp3, m4a 등 (ffmpeg 지원 형식)
     """
     _check_stt_engine()
-    async with _transcribe_slot_guard():
+    async with transcribe_slot_guard():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             src = tmp / "audio"
@@ -458,7 +438,7 @@ async def transcribe_temp(req: TranscribeUrlRequest):
     - 화자분리(diarization) 없음
     - 후처리(postprocessing) 없음
     """
-    async with _transcribe_slot_guard():
+    async with transcribe_slot_guard():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             src = tmp / "audio"
@@ -491,9 +471,11 @@ async def transcribe_temp(req: TranscribeUrlRequest):
                 ) from e
 
             try:
+                from app.executors import get_transcribe_executor
+
                 loop = asyncio.get_running_loop()
                 raw_segs = await loop.run_in_executor(
-                    None,
+                    get_transcribe_executor(),
                     lambda: transcribe_with_segments_longform(wav_path, language=req.language),
                 )
             except ValueError as e:
@@ -540,7 +522,7 @@ async def transcribe_clova_note(req: TranscribeClovaNoteRequest):
     - [{role, index, content}, ...]
     """
     _check_stt_engine()
-    async with _transcribe_slot_guard():
+    async with transcribe_slot_guard():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             # 원본 바이트·파일명 유지 (CLI가 같은 URL 파일을 저장해 돌린 것과 동일 조건).
@@ -591,7 +573,7 @@ async def transcribe_file(
 ):
     """오디오 파일 업로드로 전사."""
     _check_stt_engine()
-    async with _transcribe_slot_guard():
+    async with transcribe_slot_guard():
         suffix = Path(file.filename or "audio").suffix or ".bin"
 
         try:

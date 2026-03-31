@@ -19,6 +19,7 @@
 import argparse
 import glob
 import json
+import logging
 import math
 import os
 import re
@@ -45,6 +46,7 @@ OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 client = OpenAI(api_key=OPENAI_KEY) if OPENAI_KEY else None
+logger = logging.getLogger(__name__)
 
 
 # ─── Type → 진료과 매핑 ────────────────────────────────────
@@ -522,6 +524,18 @@ ENGLISH_MEDICAL_HINTS = re.compile(
 _WHISPER_MIN_SLICE_MS = int(os.environ.get("MEDICAL_STT_WHISPER_MIN_MS", "800"))
 # Clova 신뢰도가 이 값 미만이면 슬라이스 재전사(기본 0.75). 낮출수록 더 많은 구간을 2차 STT로 검증—지연·비용 증가
 _WHISPER_CONF_SUPPLEMENT = float(os.environ.get("MEDICAL_STT_WHISPER_CONF_THRESHOLD", "0.75"))
+# 슬라이스가 이 초 수를 넘으면 앞부분만 잘라 Whisper에 넣음(0이면 제한 없음). 긴 1세그 병합 시 지연 폭주 방지
+_WHISPER_MAX_SLICE_SEC = float(os.environ.get("MEDICAL_STT_WHISPER_MAX_SLICE_SEC", "0") or 0.0)
+# beam_size↑ 품질·↓ 속도. 보완용 기본 5 → env로 1~3 권장(속도 우선)
+_WHISPER_BEAM_SIZE = max(1, int(os.environ.get("MEDICAL_STT_WHISPER_BEAM_SIZE", "5") or 5))
+# auto(언어 자동) 2차 전사: always | never | english_only(영어 의심 정규식에 걸린 세그만—저신뢰만 구간은 1패스로 약 절반 단축)
+_whisper_auto_raw = (os.environ.get("MEDICAL_STT_WHISPER_AUTO_PASS", "english_only") or "english_only").strip().lower()
+if _whisper_auto_raw in ("0", "false", "no", "never"):
+    _WHISPER_AUTO_PASS_MODE = "never"
+elif _whisper_auto_raw in ("1", "true", "yes", "always", "all"):
+    _WHISPER_AUTO_PASS_MODE = "always"
+else:
+    _WHISPER_AUTO_PASS_MODE = "english_only"
 
 
 def _korean_char_jaccard(a: str, b: str) -> float:
@@ -659,14 +673,25 @@ def whisper_supplement(segments, wav_path, type_num=None):
         seg = segments[idx]
         start_ms = seg["start"]
         end_ms = seg["end"]
+        orig_duration_ms = end_ms - start_ms
+        duration_ms = orig_duration_ms
+        if duration_ms < _WHISPER_MIN_SLICE_MS:
+            continue
+        if _WHISPER_MAX_SLICE_SEC > 0:
+            cap_ms = int(_WHISPER_MAX_SLICE_SEC * 1000)
+            if duration_ms > cap_ms:
+                duration_ms = cap_ms
+
+        want_auto = _WHISPER_AUTO_PASS_MODE == "always" or (
+            _WHISPER_AUTO_PASS_MODE == "english_only"
+            and ENGLISH_MEDICAL_HINTS.search(seg.get("text") or "")
+        )
 
         # 오디오 슬라이스 추출
         try:
             tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
             tmp.close()
-            duration_ms = end_ms - start_ms
-            if duration_ms < _WHISPER_MIN_SLICE_MS:
-                continue
+            ff_timeout = max(45, int(duration_ms / 1000) + 30)
 
             subprocess.run([
                 "ffmpeg", "-y", "-i", wav_path,
@@ -674,13 +699,13 @@ def whisper_supplement(segments, wav_path, type_num=None):
                 "-t", f"{duration_ms / 1000:.3f}",
                 "-ar", "16000", "-ac", "1",
                 tmp.name,
-            ], capture_output=True, timeout=30)
+            ], capture_output=True, timeout=ff_timeout)
 
             # Whisper 전사 (한국어) — 아주 짧은 슬라이스는 무음에 가깝다가 무작위 단어를 내는 경우가 많음
             whisper_segs_ko, _ = model.transcribe(
                 tmp.name,
                 language="ko",
-                beam_size=5,
+                beam_size=_WHISPER_BEAM_SIZE,
                 initial_prompt=initial_prompt,
                 vad_filter=True,
                 vad_parameters={"min_silence_duration_ms": 300},
@@ -693,24 +718,24 @@ def whisper_supplement(segments, wav_path, type_num=None):
             if _whisper_slice_looks_hallucinated(clova_here, whisper_text, whisper_list_ko):
                 continue
 
-            # 영어 자동감지 모드도 시도
-            whisper_segs_auto, _ = model.transcribe(
-                tmp.name,
-                beam_size=5,
-                vad_filter=True,
-                no_speech_threshold=0.65,
-            )
-            whisper_auto = " ".join(s.text.strip() for s in whisper_segs_auto).strip()
-
-            # 영어 단어 추출
-            eng_words = re.findall(r"[A-Za-z][A-Za-z\s\-]{2,}", whisper_auto)
+            whisper_auto = ""
+            eng_words: list[str] = []
+            if want_auto:
+                whisper_segs_auto, _ = model.transcribe(
+                    tmp.name,
+                    beam_size=_WHISPER_BEAM_SIZE,
+                    vad_filter=True,
+                    no_speech_threshold=0.65,
+                )
+                whisper_auto = " ".join(s.text.strip() for s in whisper_segs_auto).strip()
+                eng_words = re.findall(r"[A-Za-z][A-Za-z\s\-]{2,}", whisper_auto)
 
             if whisper_text and len(whisper_text) > 2:
-                # CLOVA 텍스트에 Whisper 영어 용어 주입
                 if eng_words:
                     seg["whisper_english"] = " ".join(eng_words)
                 seg["whisper_text"] = whisper_text
-                seg["whisper_auto"] = whisper_auto
+                if whisper_auto:
+                    seg["whisper_auto"] = whisper_auto
 
         except Exception as e:
             pass
@@ -1032,13 +1057,13 @@ def gpt_postprocess_chunked(segments, specialty="내과", chunk_size=80):
     current_index = 1
 
     for ci, chunk in enumerate(chunks):
-        print(f"    chunk {ci+1}/{len(chunks)} ({len(chunk)} segs)...")
-
+        t_chunk = time.perf_counter()
         # 이전 청크의 마지막 2턴을 context로 포함
         context_segs = []
         if ci > 0 and all_results:
             context_segs = all_results[-2:]
 
+        err = None
         try:
             chunk_result = gpt_postprocess(chunk, specialty)
             for item in chunk_result:
@@ -1046,6 +1071,7 @@ def gpt_postprocess_chunked(segments, specialty="내과", chunk_size=80):
                 current_index += 1
             all_results.extend(chunk_result)
         except Exception as e:
+            err = e
             print(f"    chunk {ci+1} error: {e}")
             for seg in chunk:
                 all_results.append({
@@ -1054,6 +1080,20 @@ def gpt_postprocess_chunked(segments, specialty="내과", chunk_size=80):
                     "content": seg["text"],
                 })
                 current_index += 1
+
+        dt_chunk = time.perf_counter() - t_chunk
+        status = "error" if err else "ok"
+        print(
+            f"    chunk {ci+1}/{len(chunks)} ({len(chunk)} segs) {status} {dt_chunk:.2f}s"
+        )
+        logger.info(
+            "medical_stt stage=5_gpt_chunk chunk=%d/%d elapsed_s=%.3f segs=%d status=%s",
+            ci + 1,
+            len(chunks),
+            dt_chunk,
+            len(chunk),
+            status,
+        )
 
         time.sleep(1)
 
@@ -1107,6 +1147,7 @@ def process_wav(wav_path, output_path=None, type_num=None):
         print(f"  ERROR: file not found: {wav_path}")
         return None
 
+    t_total = time.perf_counter()
     wav_name = os.path.splitext(os.path.basename(wav_path))[0]
     if output_path is None:
         output_path = os.path.join(os.path.dirname(wav_path), "..", f"stt_result_{wav_name}.json")
@@ -1123,13 +1164,21 @@ def process_wav(wav_path, output_path=None, type_num=None):
 
     # Stage 1: CLOVA STT
     print("  [1/6] CLOVA Speech API (진료과별 boosting)...")
+    t0 = time.perf_counter()
     raw_result, segments = clova_stt(wav_path, type_num)
 
     # Raw 저장
     raw_path = os.path.join(os.path.dirname(output_path), f"clova_raw_{wav_name}.json")
     with open(raw_path, "w", encoding="utf-8") as f:
         json.dump(raw_result, f, ensure_ascii=False, indent=2)
-    print(f"         {len(segments)} segments")
+    dt1 = time.perf_counter() - t0
+    print(f"         {len(segments)} segments ({dt1:.2f}s)")
+    logger.info(
+        "medical_stt stage=1_clova elapsed_s=%.3f segments=%d file=%s",
+        dt1,
+        len(segments),
+        wav_name,
+    )
 
     if not segments:
         print("  WARNING: no segments from CLOVA")
@@ -1137,26 +1186,44 @@ def process_wav(wav_path, output_path=None, type_num=None):
 
     # Stage 2: 전처리
     print("  [2/6] 세그먼트 전처리...")
+    t0 = time.perf_counter()
     segments = preprocess_clova_segments(segments)
-    print(f"         {len(segments)} segments after preprocessing")
+    dt2 = time.perf_counter() - t0
+    print(f"         {len(segments)} segments after preprocessing ({dt2:.2f}s)")
+    logger.info("medical_stt stage=2_preprocess elapsed_s=%.3f segments=%d", dt2, len(segments))
 
     # Stage 3: 화자 역할 매핑
     print("  [3/6] 화자 역할 매핑...")
+    t0 = time.perf_counter()
     segments = map_speaker_roles(segments)
+    dt3 = time.perf_counter() - t0
     roles = set(seg.get("role", "?") for seg in segments)
-    print(f"         역할: {roles}")
+    print(f"         역할: {roles} ({dt3:.2f}s)")
+    logger.info("medical_stt stage=3_roles elapsed_s=%.3f", dt3)
 
     # Stage 4: Whisper 보완
     print("  [4/6] Whisper 보완 전사...")
+    t0 = time.perf_counter()
     segments = whisper_supplement(segments, wav_path, type_num)
+    dt4 = time.perf_counter() - t0
+    print(f"         done ({dt4:.2f}s)")
+    logger.info("medical_stt stage=4_whisper_supplement elapsed_s=%.3f segments=%d", dt4, len(segments))
 
     # Stage 4b: 문맥 기반 오인식 치환(앵커 + 부스팅 사전)
     print("  [4b/6] 문맥 기반 용어 치환...")
+    t0 = time.perf_counter()
     segments = apply_context_glossary_substitutions(segments, specialty)
+    dt4b = time.perf_counter() - t0
+    print(f"         done ({dt4b:.2f}s)")
+    logger.info("medical_stt stage=4b_glossary elapsed_s=%.3f", dt4b)
 
     # Stage 5: GPT 후처리
     print("  [5/6] GPT-4o 후처리...")
+    t0 = time.perf_counter()
     result = gpt_postprocess_chunked(segments, specialty)
+    dt5 = time.perf_counter() - t0
+    print(f"         {len(result)} turns ({dt5:.2f}s)")
+    logger.info("medical_stt stage=5_gpt_postprocess elapsed_s=%.3f turns=%d", dt5, len(result))
 
     # Normalize keys
     for item in result:
@@ -1165,17 +1232,32 @@ def process_wav(wav_path, output_path=None, type_num=None):
 
     # Stage 6: 검증
     print("  [6/6] 검증...")
+    t0 = time.perf_counter()
     issues = validate_result(result)
+    dt6 = time.perf_counter() - t0
     if issues:
         for issue in issues:
             print(f"    WARNING: {issue}")
+        print(f"         ({dt6:.2f}s)")
     else:
-        print("         OK")
+        print(f"         OK ({dt6:.2f}s)")
+    logger.info("medical_stt stage=6_validate elapsed_s=%.3f issues=%d", dt6, len(issues))
 
     # 저장
+    t0 = time.perf_counter()
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"         {len(result)} utterances -> {output_path}")
+    dt_save = time.perf_counter() - t0
+    print(f"         {len(result)} utterances -> {output_path} (save {dt_save:.2f}s)")
+    logger.info("medical_stt stage=save_json elapsed_s=%.3f path=%s", dt_save, output_path)
+
+    dt_all = time.perf_counter() - t_total
+    print(f"  파이프라인 합계: {dt_all:.2f}s")
+    logger.info(
+        "medical_stt process_wav total_elapsed_s=%.3f file=%s",
+        dt_all,
+        wav_name,
+    )
 
     return result
 

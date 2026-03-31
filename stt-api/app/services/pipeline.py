@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 from app.config import get_settings
+from app.executors import get_transcribe_executor
 from app.services.diarization import run_diarization
 from app.services.postprocessing import deduplicate_segments, postprocess_text
 from app.services.transcription import transcribe_with_segments
@@ -90,22 +91,23 @@ async def transcribe_with_diarization(
     """
     settings = get_settings()
     loop = asyncio.get_running_loop()
+    pool = get_transcribe_executor()
 
     if not settings.enable_diarization:
         # 화자분리 비활성화: 기존 전사만
         segments = await loop.run_in_executor(
-            None,
+            pool,
             lambda: _run_transcribe_sync(wav_path, language, specialty),
         )
         return [{"speaker": None, **s} for s in segments]
 
     # 병렬 실행: 전사 + 화자분리
     trans_task = loop.run_in_executor(
-        None,
+        pool,
         lambda: _run_transcribe_sync(wav_path, language, specialty),
     )
     diar_task = loop.run_in_executor(
-        None,
+        pool,
         lambda: _run_diarization_sync(wav_path),
     )
 
@@ -124,7 +126,7 @@ async def transcribe_with_diarization(
     try:
         from app.services.segment_recovery import recover_missing_segments
         recovery = await loop.run_in_executor(
-            None,
+            pool,
             lambda: recover_missing_segments(
                 wav_path, merged,
                 language=language, specialty=specialty,

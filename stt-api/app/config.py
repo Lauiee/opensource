@@ -27,7 +27,8 @@ class Settings(BaseSettings):
 
     # 공통
     default_language: str = Field(default="ko", validation_alias="DEFAULT_LANGUAGE")
-    max_concurrent_transcribe: int = Field(default=2, validation_alias="MAX_CONCURRENT_TRANSCRIBE")
+    # 동시에 허용할 전사 슬롯(세마포어). GPU VRAM·모델 크기에 따라 .env에서 조절(OOM 시 낮춤).
+    max_concurrent_transcribe: int = Field(default=5, validation_alias="MAX_CONCURRENT_TRANSCRIBE")
 
     # 후처리 (의료 용어 교정, 환각 제거) 적용 여부
     enable_postprocessing: bool = Field(default=True, validation_alias="ENABLE_POSTPROCESSING")

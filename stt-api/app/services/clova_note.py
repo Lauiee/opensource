@@ -16,6 +16,7 @@ from pathlib import Path
 import httpx
 
 from app.config import get_settings
+from app.executors import get_transcribe_executor
 from app.services.transcription import transcribe_with_segments
 
 logger = logging.getLogger(__name__)
@@ -486,7 +487,7 @@ async def transcribe_with_clova_note(
             return out
 
         loop = asyncio.get_running_loop()
-        segments = await loop.run_in_executor(None, _run_legacy)
+        segments = await loop.run_in_executor(get_transcribe_executor(), _run_legacy)
     elif os.environ.get("STT_ALLOW_MEDICAL_FALLBACK", "").strip().lower() in ("1", "true", "yes"):
         logger.warning(
             "medical_stt.py 없음 — STT_ALLOW_MEDICAL_FALLBACK 로 내부 근사 파이프라인 사용 중 "
